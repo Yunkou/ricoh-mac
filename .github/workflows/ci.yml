@@ -1,0 +1,60 @@
+# CI for nsh check, nsh test, and cargo clippy on macOS.
+# NSH is installed with the official script pinned to v0.5.1:
+#   NSH_VERSION=v0.5.1 curl -fsSL https://nsh.dev/install.sh | sh
+# That command is documented at https://nsh.dev/docs/installation/.
+# This workflow has not yet been observed on a GitHub-hosted runner;
+# if the installer or PATH layout changes, the "Install NSH" step will need an update.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NSH_VERSION: v0.5.1
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check-and-test:
+    name: nsh check and test
+    runs-on: macos-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v4
+
+      - name: Install the Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+
+      - name: Install NSH
+        env:
+          NSH_VERSION: ${{ env.NSH_VERSION }}
+        run: |
+          curl -fsSL https://nsh.dev/install.sh | sh
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Show toolchain versions
+        run: |
+          command -v nsh
+          nsh --version
+          rustc --version
+          cargo --version
+
+      - name: Format
+        run: make fmt
+
+      - name: Check
+        run: make check
+
+      - name: Test
+        run: make test
+
+      - name: Clippy
+        run: make clippy
