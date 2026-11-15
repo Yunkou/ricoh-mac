@@ -4,7 +4,7 @@ import { Input } from "nsh/base";
 import { copy } from "../copy";
 import { enterFade, exitFade } from "../lib/motion";
 import type { AppModel } from "../state/app-model";
-import { color, focusRing, font, inputStyle, motion, radius, space, type } from "../theme";
+import { color, focusRing, font, inputStyle, motion, panelBackdrop, radius, space, type } from "../theme";
 import { Button } from "./button";
 import { Icon, type IconName } from "./icon";
 
@@ -64,6 +64,7 @@ function settingsOverlay(model: AppModel, panelMotion: Motion) {
       margin={12}
       onPressOutside={() => model.settingsOpen.set(false)}
       onCancel={() => model.settingsOpen.set(false)}
+      macos={{ backdrop: panelBackdrop }}
       style={{
         width: 360,
         backgroundColor: color.raised,

@@ -98,7 +98,7 @@ fn map_wifi_error(err: WifiError, via_utun: Option<String>) -> ConnectOutcome {
         _ => ConnectFailKind::Other,
     };
     let mut message = err.message();
-    if via_utun.is_some() && !message.contains("utun") && !message.contains("TUN") {
+    if via_utun.is_some() && !message.contains("排除出代理") {
         message = utun_prefix(via_utun.as_deref()) + &message;
     }
     fail(kind, message, via_utun)
@@ -184,11 +184,12 @@ pub fn connect_camera(
     {
         if store.active().is_none() {
             return ConnectOutcome::NeedProfile {
-                    suggested_ssid: current,
-                    already_on_camera: true,
-                    via_utun,
-                    message: "已连接到相机。请保存相机屏幕上显示的 Wi-Fi 名称和密码，以后就可以自动切换网络。".to_string(),
-                };
+                suggested_ssid: current,
+                already_on_camera: true,
+                via_utun,
+                message: "已连接到相机。请保存相机屏幕上的网络名称和密码，以后就可以自动连接。"
+                    .to_string(),
+            };
         }
         remember_identity(dir, &result.props);
         let _ = WifiSession::clear(dir);
@@ -206,7 +207,7 @@ pub fn connect_camera(
             already_on_camera: false,
             via_utun: via_utun.clone(),
             message: utun_prefix(via_utun.as_deref())
-                + "尚未保存相机 Wi-Fi。请输入相机屏幕上显示的网络名称和密码，或先在系统设置中手动加入后再连接。",
+                + "还没有保存过相机网络。请输入相机屏幕上的网络名称和密码，或先在系统设置中手动加入后再连接。",
         };
     };
 
@@ -217,7 +218,7 @@ pub fn connect_camera(
                 suggested_ssid: Some(profile.ssid),
                 already_on_camera: false,
                 via_utun: via_utun.clone(),
-                message: "已有相机配置，但钥匙串里没有密码。请重新输入 Wi-Fi 密码。".to_string(),
+                message: "已保存过这台相机，但找不到密码。请重新输入密码。".to_string(),
             };
         }
         Err(err) => return fail(ConnectFailKind::Other, err.to_string(), via_utun),
@@ -255,7 +256,7 @@ pub fn connect_camera(
         Ok(_) => fail(
             ConnectFailKind::Unreachable,
             utun_prefix(via_utun.as_deref())
-                + "已加入相机网络，但相机没有响应。请确认相机无线局域网仍然打开。",
+                + "已加入相机网络，但相机没有响应。请确认相机无线网络仍然打开。",
             via_utun,
         ),
         Err(err) => map_wifi_error(err, via_utun),
@@ -333,8 +334,8 @@ pub fn switch_back(dir: &Path, wifi: &impl WifiController) -> SwitchBackOutcome 
             let _ = WifiSession::clear(dir);
             SwitchBackOutcome::Restored { ssid }
         }
-        Err(err) => SwitchBackOutcome::Failed {
-            message: format!("无法切换回 {ssid}：{}", err.message()),
+        Err(_err) => SwitchBackOutcome::Failed {
+            message: format!("无法切回 {ssid}，请在系统设置中手动切换。"),
         },
     }
 }
@@ -351,9 +352,9 @@ pub fn maybe_switch_back_after_import(dir: &Path, wifi: &impl WifiController) ->
 
 fn utun_prefix(iface: Option<&str>) -> String {
     match iface {
-        Some(name) => format!(
-            "到相机地址 {CAMERA_HOST} 的路由目前经过隧道接口 {name}。如果使用了 Clash Verge 等代理的 TUN 模式，请把 {CAMERA_HOST} 排除出代理后再试。 "
-        ),
+        Some(_name) => {
+            "网络似乎被代理占用，相机可能连不上。请把相机网络排除出代理后再试。 ".to_string()
+        }
         None => String::new(),
     }
 }
@@ -560,8 +561,8 @@ mod tests {
                 via_utun, message, ..
             } => {
                 assert_eq!(via_utun.as_deref(), Some("utun4"));
-                assert!(message.contains("utun4"));
-                assert!(message.contains("Clash Verge") || message.contains("TUN"));
+                assert!(message.contains("代理"));
+                assert!(message.contains("排除出代理"));
             }
             other => panic!("unexpected {other:?}"),
         }

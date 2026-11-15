@@ -6,6 +6,14 @@
   "rust": ".",
   "appearance": "dark",
   "theme": "ui/font-theme.json",
+  "window": {
+    "titleBar": {
+      "style": "hidden",
+      "height": 52
+    },
+    "transparent": true,
+    "backdrop": "sidebar"
+  },
   "macos": {
     "infoPlist": {
       "NSLocationUsageDescription": "Ricoh Mac 需要定位权限才能读取当前 Wi-Fi 名称，便于在首次连接时自动保存相机网络。应用不会使用或记录你的位置。若你拒绝授权，仍可手动输入相机屏幕上显示的网络名称。",

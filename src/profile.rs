@@ -58,19 +58,20 @@ impl ProfileStore {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let text = fs::read_to_string(&path)
-            .map_err(|err| AppError::msg(format!("无法读取相机配置：{err}")))?;
-        serde_json::from_str(&text).map_err(|err| AppError::msg(format!("无法解析相机配置：{err}")))
+        let text =
+            fs::read_to_string(&path).map_err(|_err| AppError::msg("无法读取已保存的相机。"))?;
+        serde_json::from_str(&text)
+            .map_err(|_err| AppError::msg("已保存的相机信息无法使用，请重新保存。"))
     }
 
     pub fn save(&self, dir: &Path) -> Result<(), AppError> {
-        fs::create_dir_all(dir).map_err(|err| AppError::msg(format!("无法创建配置目录：{err}")))?;
+        fs::create_dir_all(dir).map_err(|_err| AppError::msg("无法保存相机信息。"))?;
         let path = Self::path(dir);
         let tmp = dir.join(format!("{FILE_NAME}.tmp"));
         let text = serde_json::to_string_pretty(self)
-            .map_err(|err| AppError::msg(format!("无法序列化相机配置：{err}")))?;
-        fs::write(&tmp, text).map_err(|err| AppError::msg(format!("无法写入相机配置：{err}")))?;
-        fs::rename(&tmp, &path).map_err(|err| AppError::msg(format!("无法保存相机配置：{err}")))
+            .map_err(|_err| AppError::msg("无法保存相机信息。"))?;
+        fs::write(&tmp, text).map_err(|_err| AppError::msg("无法保存相机信息。"))?;
+        fs::rename(&tmp, &path).map_err(|_err| AppError::msg("无法保存相机信息。"))
     }
 
     pub fn active(&self) -> Option<&CameraProfile> {
@@ -95,6 +96,14 @@ impl ProfileStore {
             self.active_profile_id = self.profiles.first().map(|profile| profile.id.clone());
         }
     }
+
+    pub fn set_active(&mut self, id: &str) -> Result<(), AppError> {
+        if !self.profiles.iter().any(|profile| profile.id == id) {
+            return Err(AppError::msg("找不到这台相机。"));
+        }
+        self.active_profile_id = Some(id.to_string());
+        Ok(())
+    }
 }
 
 /// The Wi-Fi network the Mac was on before switching to the camera.
@@ -114,19 +123,19 @@ impl WifiSession {
         if !path.exists() {
             return Ok(Self::default());
         }
-        let text = fs::read_to_string(&path)
-            .map_err(|err| AppError::msg(format!("无法读取网络会话：{err}")))?;
-        serde_json::from_str(&text).map_err(|err| AppError::msg(format!("无法解析网络会话：{err}")))
+        let text =
+            fs::read_to_string(&path).map_err(|_err| AppError::msg("无法读取上次的网络状态。"))?;
+        serde_json::from_str(&text).map_err(|_err| AppError::msg("无法读取上次的网络状态。"))
     }
 
     pub fn save(&self, dir: &Path) -> Result<(), AppError> {
-        fs::create_dir_all(dir).map_err(|err| AppError::msg(format!("无法创建配置目录：{err}")))?;
+        fs::create_dir_all(dir).map_err(|_err| AppError::msg("无法保存网络状态。"))?;
         let path = Self::path(dir);
         let tmp = dir.join(format!("{SESSION_FILE}.tmp"));
         let text = serde_json::to_string_pretty(self)
-            .map_err(|err| AppError::msg(format!("无法序列化网络会话：{err}")))?;
-        fs::write(&tmp, text).map_err(|err| AppError::msg(format!("无法写入网络会话：{err}")))?;
-        fs::rename(&tmp, &path).map_err(|err| AppError::msg(format!("无法保存网络会话：{err}")))
+            .map_err(|_err| AppError::msg("无法保存网络状态。"))?;
+        fs::write(&tmp, text).map_err(|_err| AppError::msg("无法保存网络状态。"))?;
+        fs::rename(&tmp, &path).map_err(|_err| AppError::msg("无法保存网络状态。"))
     }
 
     pub fn clear(dir: &Path) -> Result<(), AppError> {
@@ -177,6 +186,13 @@ pub fn save_profile(
 pub fn set_auto_switch_back(dir: &Path, value: bool) -> Result<ProfileStore, AppError> {
     let mut store = ProfileStore::load(dir)?;
     store.auto_switch_back = value;
+    store.save(dir)?;
+    Ok(store)
+}
+
+pub fn set_active_profile(dir: &Path, id: &str) -> Result<ProfileStore, AppError> {
+    let mut store = ProfileStore::load(dir)?;
+    store.set_active(id)?;
     store.save(dir)?;
     Ok(store)
 }
@@ -251,6 +267,58 @@ mod tests {
         assert!(ProfileStore::load(&dir).unwrap().profiles.is_empty());
         assert_eq!(secrets.get_secret(&saved.id).unwrap(), None);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[test]
+    fn set_active_switches_the_current_profile() {
+        let dir = temp_dir();
+        let secrets = MemorySecrets::default();
+        let first = save_profile(
+            &dir,
+            &secrets,
+            CameraProfile {
+                id: "one".to_string(),
+                model: Some("GR IIIx".to_string()),
+                serial: Some("A".to_string()),
+                firmware: None,
+                ssid: "GR_ONE".to_string(),
+                base_url: "http://192.168.0.1".to_string(),
+                created_at: 0,
+                last_used_at: 0,
+            },
+            "password12",
+        )
+        .unwrap();
+        let second = save_profile(
+            &dir,
+            &secrets,
+            CameraProfile {
+                id: "two".to_string(),
+                model: Some("GR IIIx".to_string()),
+                serial: Some("B".to_string()),
+                firmware: None,
+                ssid: "GR_TWO".to_string(),
+                base_url: "http://192.168.0.1".to_string(),
+                created_at: 0,
+                last_used_at: 0,
+            },
+            "password34",
+        )
+        .unwrap();
+        assert_eq!(
+            ProfileStore::load(&dir).unwrap().active().unwrap().id,
+            second.id
+        );
+        let store = super::set_active_profile(&dir, &first.id).unwrap();
+        assert_eq!(store.active().unwrap().id, first.id);
+        assert_eq!(
+            ProfileStore::load(&dir).unwrap().active().unwrap().id,
+            first.id
+        );
+        let err = super::set_active_profile(&dir, "missing")
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("找不到这台相机"), "{err}");
     }
 
     #[test]

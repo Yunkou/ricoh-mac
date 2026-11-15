@@ -1,5 +1,5 @@
 import { expect, open, test } from "nsh/test";
-import type { ConnectResult, ImportProgress, ImportReport, PhotoItem, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
+import type { ConnectResult, ImportProgress, ImportReport, LibraryPhoto, PhotoItem, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
 import { applyRange, columnCount, selectAll, selectedCount, selectedIds, toggleId } from "./state/selection";
 
 const samplePhotos = [
@@ -18,10 +18,25 @@ const connected = {
 
 const defaultWifiSettings: WifiSettings = {
   profile: null,
+  profiles: [],
   autoSwitchBack: true,
   previousSsid: null,
   canSwitchBack: false,
   viaUtun: null,
+};
+
+const sampleAlbum: LibraryPhoto[] = [
+  { id: "R0000001.JPG", file: "R0000001.JPG", size: 1200, path: "/tmp/ricoh-mac-test-library/R0000001.JPG", previewUrl: "file:///tmp/ricoh-mac-test-library/R0000001.JPG" },
+  { id: "R0000002.DNG", file: "R0000002.DNG", size: 2400, path: "/tmp/ricoh-mac-test-library/R0000002.DNG", previewUrl: null },
+  { id: "R0000003.JPG", file: "R0000003.JPG", size: 1300, path: "/tmp/ricoh-mac-test-library/R0000003.JPG", previewUrl: "file:///tmp/ricoh-mac-test-library/R0000003.JPG" },
+];
+
+const savedProfile: ProfileView = {
+  id: "s1",
+  model: "RICOH GR IIIx",
+  serial: "S1",
+  firmware: "1.65",
+  ssid: "GR_ABCD",
 };
 
 type ProbeLike = {
@@ -69,7 +84,7 @@ function connectResultFromProbe(probe: ProbeLike): ConnectResult {
 function needProfileResult(overrides: Partial<ConnectResult> = {}): ConnectResult {
   return {
     kind: "need_profile",
-    message: "尚未保存相机 Wi-Fi。",
+    message: "还没有保存过相机网络。",
     suggestedSsid: null,
     alreadyOnCamera: false,
     viaUtun: null,
@@ -95,12 +110,18 @@ function modules(options?: {
   wifiDeleteProfile?: () => Promise<WifiSettings> | WifiSettings;
   wifiSaveProfile?: (ssid: string, password: string) => Promise<{ id: string; ssid: string }> | { id: string; ssid: string };
   wifiSetAutoSwitchBack?: (value: boolean) => Promise<boolean> | boolean;
+  wifiConnectProfile?: (id: string) => Promise<ConnectResult> | ConnectResult;
+  libraryPhotos?: LibraryPhoto[] | (() => LibraryPhoto[]);
 }) {
   const folder = options?.folder === undefined ? null : options.folder;
   const photos = options?.photos ?? samplePhotos;
   const probe = options?.probe ?? connected;
   const settings = options?.wifiSettings ?? defaultWifiSettings;
   const readSettings = () => (typeof settings === "function" ? settings() : settings);
+  const readLibraryPhotos = () => {
+    const listed = options?.libraryPhotos ?? [];
+    return typeof listed === "function" ? listed() : listed;
+  };
   const wifiConnect =
     options?.wifiConnect ??
     (async () => {
@@ -114,12 +135,14 @@ function modules(options?: {
       "Library.pickFolder": async () => "/tmp/ricoh-mac-test-library",
       "Library.setCameraBaseUrl": async (url: string) => url,
       "Library.resetCameraBaseUrl": async () => "http://192.168.0.1",
+      "Library.listPhotos": async () => readLibraryPhotos(),
       "Camera.probe": typeof probe === "function" ? probe : async () => probe,
       "Camera.listPhotos": async () => photos,
       "Camera.loadThumbnail": options?.loadThumbnail ?? (async () => null),
       "Camera.importSelected": options?.importSelected ?? (async () => emptyReport()),
       "Camera.importAll": options?.importAll ?? (async () => emptyReport()),
       "Wifi.connect": wifiConnect,
+      "Wifi.connectProfile": options?.wifiConnectProfile ?? wifiConnect,
       "Wifi.saveAndConnect": options?.wifiSaveAndConnect ?? (async () => connectResultFromProbe(connected)),
       "Wifi.saveProfile": options?.wifiSaveProfile ?? (async (ssid: string) => ({ id: "ssid:" + ssid, ssid })),
       "Wifi.settings": async () => readSettings(),
@@ -170,6 +193,21 @@ function launch(moduleOverrides?: Parameters<typeof modules>[0]) {
   });
 }
 
+async function launchInDevices(moduleOverrides?: Parameters<typeof modules>[0]) {
+  const app = await launch(moduleOverrides);
+  await app.waitFor("id:home-screen");
+  await app.waitFor("id:open-devices");
+  await app.press("id:open-devices");
+  return app;
+}
+
+async function launchInPhotos(moduleOverrides?: Parameters<typeof modules>[0]) {
+  const app = await launch(moduleOverrides);
+  await app.waitFor("id:home-screen");
+  await app.press("id:open-photos");
+  return app;
+}
+
 test("selection helpers toggle, range, and count", () => {
   const ids = samplePhotos.map((photo) => photo.id);
   let selected = toggleId({}, ids[0]);
@@ -183,38 +221,39 @@ test("selection helpers toggle, range, and count", () => {
   expect(columnCount(390)).toBe(2);
 });
 
-test("first run asks for a library and does not show a connection error", async () => {
+test("launch shows two feature entries and does not show a connection error", async () => {
   const app = await launch({ folder: null });
-  await app.waitFor("id:first-run");
+  await app.waitFor("id:home-screen");
   const texts = app.texts();
-  expect(texts).toContain("选择资料库文件夹");
-  expect(texts.some((line) => line.includes("原文件名"))).toBe(true);
-  expect(texts).toContain("尚未连接");
+  expect(texts).toContain("设备");
+  expect(texts).toContain("照片");
+  expect(texts.indexOf("照片")).toBeLessThan(texts.indexOf("设备"));
   expect(texts.some((line) => line.includes("无法连接"))).toBe(false);
-  expect(texts).not.toContain("Choose a library folder");
-  expect(texts).not.toContain("Not connected");
   expect(app.shows("id:connect-camera")).toBe(false);
   expect(app.shows("id:import-selected")).toBe(false);
+  expect(app.shows("id:settings-button")).toBe(true);
+  expect(app.shows("id:open-devices")).toBe(true);
+  expect(app.shows("id:open-photos")).toBe(true);
   app.dispose();
 });
 
-test("choosing a library shows connection guidance without a red error", async () => {
-  const app = await launch({ folder: null });
-  await app.waitFor("id:choose-folder-first");
-  await app.press("id:choose-folder-first");
+test("opening my devices shows connection guidance without a red error", async () => {
+  const app = await launchInDevices({ folder: "/tmp/ricoh-mac-test-library" });
   await app.waitFor("id:connect-camera");
   const texts = app.texts();
   expect(texts).toContain("连接相机");
-  expect(texts.some((line) => line.includes("无线局域网"))).toBe(true);
-  expect(texts.some((line) => line.includes("以太网") || line.includes("USB"))).toBe(true);
-  expect(texts).toContain("尚未连接");
+  expect(texts.some((line) => line.includes("无线网络"))).toBe(true);
+  expect(texts.some((line) => line.includes("网线") || line.includes("网络共享"))).toBe(true);
+  expect(texts).toContain("未连接");
   expect(texts.some((line) => line.includes("无法连接"))).toBe(false);
   expect(app.shows("id:import-selected")).toBe(false);
+  expect(app.shows("id:area-devices")).toBe(true);
+  expect(app.shows("id:back-home")).toBe(true);
   app.dispose();
 });
 
 test("a successful connection loads the thumbnail grid", async () => {
-  const app = await launch({ folder: "/tmp/ricoh-mac-test-library" });
+  const app = await launchInDevices({ folder: "/tmp/ricoh-mac-test-library" });
   await app.waitFor("id:connect-camera");
   await app.press("id:connect-camera");
   await app.waitFor("id:photo-0");
@@ -229,7 +268,7 @@ test("a successful connection loads the thumbnail grid", async () => {
 });
 
 test("selection updates the count and enables import selected", async () => {
-  const app = await launch({ folder: "/tmp/ricoh-mac-test-library" });
+  const app = await launchInDevices({ folder: "/tmp/ricoh-mac-test-library" });
   await app.waitFor("id:connect-camera");
   await app.press("id:connect-camera");
   await app.waitFor("id:photo-0");
@@ -246,7 +285,7 @@ test("selection updates the count and enables import selected", async () => {
 });
 
 test("shift-click selects a range of photos", async () => {
-  const app = await launch({ folder: "/tmp/ricoh-mac-test-library" });
+  const app = await launchInDevices({ folder: "/tmp/ricoh-mac-test-library" });
   await app.waitFor("id:connect-camera");
   await app.press("id:connect-camera");
   await app.waitFor("id:photo-0");
@@ -273,7 +312,7 @@ test("import selected is disabled while an import is running and shows progress 
   const importHeld = new Promise<typeof report>((resolve) => {
     finishImport = resolve;
   });
-  const app = await launch({
+  const app = await launchInDevices({
     folder: "/tmp/ricoh-mac-test-library",
     importSelected: async (_ids: string[], onProgress: unknown) => {
       postProgress(onProgress, {
@@ -309,7 +348,7 @@ test("import selected is disabled while an import is running and shows progress 
 });
 
 test("import summary distinguishes conflicts and errors", async () => {
-  const app = await launch({
+  const app = await launchInDevices({
     folder: "/tmp/ricoh-mac-test-library",
     importAll: async (_onProgress: unknown) => ({
       imported: 1,
@@ -336,7 +375,7 @@ test("import summary distinguishes conflicts and errors", async () => {
 });
 
 test("keyboard shortcuts select all, clear, and do not fire while editing the camera URL", async () => {
-  const app = await launch({ folder: "/tmp/ricoh-mac-test-library" });
+  const app = await launchInDevices({ folder: "/tmp/ricoh-mac-test-library" });
   await app.waitFor("id:connect-camera");
   await app.press("id:connect-camera");
   await app.waitFor("id:photo-0");
@@ -356,21 +395,21 @@ test("keyboard shortcuts select all, clear, and do not fire while editing the ca
 
 test("settings holds the library and camera URL controls", async () => {
   const app = await launch({ folder: "/tmp/ricoh-mac-test-library" });
-  await app.waitFor("id:connect-camera");
+  await app.waitFor("id:home-screen");
   expect(app.shows("id:camera-url")).toBe(false);
   await app.press("id:settings-button");
   await app.waitFor("id:settings-panel");
   expect(app.shows("id:camera-url")).toBe(true);
   expect(app.shows("id:choose-folder")).toBe(true);
   expect(app.value("id:camera-url")).toBe("http://192.168.0.1");
-  expect(app.texts()).toContain("相机地址（高级）");
+  expect(app.texts()).toContain("相机地址");
   await app.keyboard.press("escape");
   await app.waitUntil(() => !app.shows("id:settings-panel"));
   app.dispose();
 });
 
 test("a failed probe is an error, and idle text is not used as that error", async () => {
-  const app = await launch({
+  const app = await launchInDevices({
     folder: "/tmp/ricoh-mac-test-library",
     probe: {
       connected: false,
@@ -385,7 +424,7 @@ test("a failed probe is an error, and idle text is not used as that error", asyn
   await app.waitUntil(() => app.texts().some((line) => line.includes("无法连接")));
   const texts = app.texts();
   expect(texts.some((line) => line.includes("无法连接") && line.includes("timed out"))).toBe(true);
-  expect(texts).not.toContain("尚未连接");
+  expect(texts).not.toContain("未连接");
   app.dispose();
 });
 
@@ -405,7 +444,7 @@ function manyPhotos(count: number) {
 test("thumbnails are loaded once per item and selection survives later thumbnail updates", async () => {
   const photos = manyPhotos(20);
   const loadIds: string[] = [];
-  const app = await launch({
+  const app = await launchInDevices({
     folder: "/tmp/ricoh-mac-test-library",
     photos,
     loadThumbnail: async (folder, file) => {
@@ -429,7 +468,7 @@ test("thumbnails are loaded once per item and selection survives later thumbnail
 
 test("first connection asks for a camera Wi-Fi profile and then loads photos", async () => {
   const saved: { ssid?: string; password?: string; alreadyOnCamera?: boolean } = {};
-  const app = await launch({
+  const app = await launchInDevices({
     folder: "/tmp/ricoh-mac-test-library",
     wifiConnect: async () =>
       needProfileResult({
@@ -449,7 +488,7 @@ test("first connection asks for a camera Wi-Fi profile and then loads photos", a
   await app.waitFor("id:wifi-profile-form");
   expect(app.shows("id:connect-camera")).toBe(false);
   expect(app.value("id:wifi-ssid")).toBe("GR_ABCD");
-  expect(app.texts().some((line) => line.includes("请输入相机屏幕上显示的密码"))).toBe(true);
+  expect(app.texts().some((line) => line.includes("请输入相机屏幕上的密码"))).toBe(true);
   await app.type("id:wifi-password", "secret");
   await app.press("id:save-and-connect");
   await app.waitFor("id:photo-0");
@@ -459,7 +498,7 @@ test("first connection asks for a camera Wi-Fi profile and then loads photos", a
 });
 
 test("a utun route to the camera is shown as a hint", async () => {
-  const app = await launch({
+  const app = await launchInDevices({
     folder: "/tmp/ricoh-mac-test-library",
     wifiSettings: { ...defaultWifiSettings, viaUtun: "utun4" },
     wifiConnect: async () => needProfileResult({ viaUtun: "utun4" }),
@@ -467,7 +506,7 @@ test("a utun route to the camera is shown as a hint", async () => {
   await app.waitFor("id:connect-camera");
   await app.press("id:connect-camera");
   await app.waitFor("id:utun-hint");
-  expect(app.texts().some((line) => line.includes("utun4") && line.includes("Clash Verge"))).toBe(true);
+  expect(app.texts().some((line) => line.includes("代理") && line.includes("排除"))).toBe(true);
   app.dispose();
 });
 
@@ -479,7 +518,8 @@ test("settings shows a saved profile and can delete it", async () => {
       deleted
         ? defaultWifiSettings
         : {
-            profile: { id: "serial:S1", model: "RICOH GR IIIx", serial: "S1", firmware: "1.65", ssid: "GR_ABCD" },
+            profile: savedProfile,
+            profiles: [savedProfile],
             autoSwitchBack: true,
             previousSsid: null,
             canSwitchBack: false,
@@ -504,10 +544,11 @@ test("settings shows a saved profile and can delete it", async () => {
 
 test("import automatically switches back to the previous network when enabled", async () => {
   let switchedBack = false;
-  const app = await launch({
+  const app = await launchInDevices({
     folder: "/tmp/ricoh-mac-test-library",
     wifiSettings: {
-      profile: { id: "ssid:GR_ABCD", ssid: "GR_ABCD" },
+      profile: { id: "ssid:GR_ABCD", model: null, serial: null, firmware: null, ssid: "GR_ABCD" },
+      profiles: [],
       autoSwitchBack: true,
       previousSsid: "HomeNet",
       canSwitchBack: true,
@@ -515,7 +556,7 @@ test("import automatically switches back to the previous network when enabled", 
     },
     wifiSwitchBackAfterImport: async () => {
       switchedBack = true;
-      return { kind: "restored", ssid: "HomeNet", message: "已切换回 HomeNet" };
+      return { kind: "restored", ssid: "HomeNet", message: "已切回 HomeNet" };
     },
     importAll: async (onProgress: unknown) => {
       postProgress(onProgress, {
@@ -541,6 +582,258 @@ test("import automatically switches back to the previous network when enabled", 
   await app.press("id:import-all");
   await app.waitUntil(() => switchedBack);
   await app.waitFor("id:banner");
-  expect(app.texts()).toContain("已切换回 HomeNet");
+  expect(app.texts()).toContain("已切回 HomeNet");
+  app.dispose();
+});
+
+test("opening my photos without a library asks for a folder", async () => {
+  const app = await launchInPhotos({ folder: null });
+  await app.waitFor("id:first-run");
+  expect(app.texts()).toContain("选择保存位置");
+  expect(app.texts().some((line) => line.includes("原文件名"))).toBe(true);
+  expect(app.shows("id:connect-camera")).toBe(false);
+  expect(app.shows("id:import-selected")).toBe(false);
+  app.dispose();
+});
+
+test("my photos lists imported files without a camera connection", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+    wifiConnect: async () => {
+      throw new Error("camera should not be contacted");
+    },
+  });
+  await app.waitFor("id:album-photo-0");
+  const texts = app.texts();
+  expect(texts).toContain("共 3 张");
+  expect(texts).toContain("R0000001.JPG");
+  expect(texts).toContain("R0000002.DNG");
+  expect(texts).toContain("R0000003.JPG");
+  expect(app.shows("id:import-selected")).toBe(false);
+  expect(app.shows("id:connect-camera")).toBe(false);
+  expect(app.shows("id:photo-viewer")).toBe(false);
+  app.dispose();
+});
+
+function showsViewerPhoto(app: { shows: (selector: string) => boolean }, id: string): boolean {
+  return app.shows(`id:viewer-photo-${id}`);
+}
+
+async function openFirstAlbumPhoto(moduleOverrides?: Parameters<typeof modules>[0]) {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+    ...moduleOverrides,
+  });
+  await app.waitFor("id:album-photo-0");
+  await app.press("id:album-photo-0");
+  await app.waitFor("id:photo-viewer");
+  await app.waitFor("id:viewer-photo-R0000001.JPG");
+  return app;
+}
+
+test("opening an imported photo shows a large view and clicking next and previous changes the displayed photo", async () => {
+  const app = await openFirstAlbumPhoto();
+  expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(true);
+  expect(app.shows("id:viewer-image")).toBe(true);
+  expect(app.texts()).toContain("1 / 3");
+  expect(app.enabled("id:viewer-prev")).toBe(false);
+  expect(app.enabled("id:viewer-next")).toBe(true);
+  await app.press("id:viewer-next");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(false);
+  expect(app.shows("id:viewer-placeholder")).toBe(true);
+  expect(app.texts()).toContain("无法预览");
+  expect(app.texts()).toContain("2 / 3");
+  expect(app.enabled("id:viewer-prev")).toBe(true);
+  await app.press("id:viewer-prev");
+  await app.waitFor("id:viewer-photo-R0000001.JPG");
+  expect(showsViewerPhoto(app, "R0000002.DNG")).toBe(false);
+  expect(app.shows("id:viewer-image")).toBe(true);
+  expect(app.texts()).toContain("1 / 3");
+  await app.press("id:viewer-close");
+  await app.waitUntil(() => !app.shows("id:photo-viewer"));
+  app.dispose();
+});
+
+test("viewer arrow keys move between photos", async () => {
+  const app = await openFirstAlbumPhoto();
+  await app.keyboard.press("right");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(false);
+  expect(app.texts()).toContain("2 / 3");
+  await app.keyboard.press("left");
+  await app.waitFor("id:viewer-photo-R0000001.JPG");
+  expect(showsViewerPhoto(app, "R0000002.DNG")).toBe(false);
+  expect(app.texts()).toContain("1 / 3");
+  app.dispose();
+});
+
+test("viewer H L J K keys move between photos", async () => {
+  const app = await openFirstAlbumPhoto();
+  await app.keyboard.press("l");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  await app.keyboard.press("h");
+  await app.waitFor("id:viewer-photo-R0000001.JPG");
+  await app.keyboard.press("j");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  await app.keyboard.press("k");
+  await app.waitFor("id:viewer-photo-R0000001.JPG");
+  expect(showsViewerPhoto(app, "R0000002.DNG")).toBe(false);
+  app.dispose();
+});
+
+test("viewer Home and End keys jump to the first and last photos", async () => {
+  const app = await openFirstAlbumPhoto();
+  await app.keyboard.press("end");
+  await app.waitFor("id:viewer-photo-R0000003.JPG");
+  expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(false);
+  expect(app.texts()).toContain("3 / 3");
+  expect(app.enabled("id:viewer-next")).toBe(false);
+  await app.keyboard.press("home");
+  await app.waitFor("id:viewer-photo-R0000001.JPG");
+  expect(showsViewerPhoto(app, "R0000003.JPG")).toBe(false);
+  expect(app.texts()).toContain("1 / 3");
+  app.dispose();
+});
+
+test("Space and Enter open the viewer from the grid and close it", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:album-photo-0");
+  expect(app.shows("id:photo-viewer")).toBe(false);
+  await app.keyboard.press("space");
+  await app.waitFor("id:photo-viewer");
+  expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(true);
+  await app.keyboard.press("space");
+  await app.waitUntil(() => !app.shows("id:photo-viewer"));
+  await app.keyboard.press("enter");
+  await app.waitFor("id:photo-viewer");
+  expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(true);
+  await app.keyboard.press("enter");
+  await app.waitUntil(() => !app.shows("id:photo-viewer"));
+  app.dispose();
+});
+
+test("Escape closes the large-image viewer", async () => {
+  const app = await openFirstAlbumPhoto();
+  await app.keyboard.press("escape");
+  await app.waitUntil(() => !app.shows("id:photo-viewer"));
+  app.dispose();
+});
+
+test("F toggles fit and actual size in the viewer", async () => {
+  const app = await openFirstAlbumPhoto();
+  expect(app.shows("id:viewer-fit-mode")).toBe(true);
+  expect(app.shows("id:viewer-actual-mode")).toBe(false);
+  await app.keyboard.press("f");
+  await app.waitFor("id:viewer-actual-mode");
+  expect(app.shows("id:viewer-fit-mode")).toBe(false);
+  await app.keyboard.press("f");
+  await app.waitFor("id:viewer-fit-mode");
+  expect(app.shows("id:viewer-actual-mode")).toBe(false);
+  app.dispose();
+});
+
+test("I shows and hides file information in the viewer", async () => {
+  const app = await openFirstAlbumPhoto();
+  expect(app.shows("id:viewer-info")).toBe(false);
+  await app.keyboard.press("i");
+  await app.waitFor("id:viewer-info");
+  expect(app.texts()).toContain("文件信息");
+  expect(app.texts().some((line) => line.includes("位置") && line.includes("/tmp/ricoh-mac-test-library/R0000001.JPG"))).toBe(true);
+  expect(app.texts().some((line) => line.includes("大小") && line.includes("1.2 KB"))).toBe(true);
+  await app.keyboard.press("i");
+  await app.waitUntil(() => !app.shows("id:viewer-info"));
+  app.dispose();
+});
+
+test("question mark and the help control toggle the shortcut list", async () => {
+  const app = await openFirstAlbumPhoto();
+  expect(app.shows("id:viewer-hint")).toBe(true);
+  expect(app.texts()).toContain("← → 切换  Esc 关闭  ? 快捷键");
+  expect(app.shows("id:viewer-shortcuts")).toBe(false);
+  await app.keyboard.press("shift+/");
+  await app.waitFor("id:viewer-shortcuts");
+  expect(app.texts()).toContain("快捷键");
+  expect(app.texts().some((line) => line.includes("Esc") && line.includes("关闭"))).toBe(true);
+  await app.press("id:viewer-help");
+  await app.waitUntil(() => !app.shows("id:viewer-shortcuts"));
+  app.dispose();
+});
+
+test("after import, viewing imported photos opens the local album", async () => {
+  const app = await launchInDevices({
+    folder: "/tmp/ricoh-mac-test-library",
+    importSelected: async () => ({
+      imported: 1,
+      skipped: 0,
+      conflicts: 0,
+      errors: 0,
+      items: [{ file: "R0000001.JPG", status: "imported", message: "" }],
+    }),
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:connect-camera");
+  await app.press("id:connect-camera");
+  await app.waitFor("id:photo-0");
+  await app.press("id:photo-0");
+  await app.press("id:import-selected");
+  await app.waitFor("id:view-imported");
+  expect(app.texts().some((line) => line.includes("已导入 1"))).toBe(true);
+  await app.press("id:view-imported");
+  await app.waitFor("id:album-grid");
+  expect(app.texts()).toContain("R0000001.JPG");
+  expect(app.shows("id:import-selected")).toBe(false);
+  expect(app.shows("id:area-photos")).toBe(true);
+  app.dispose();
+});
+
+test("the area switch and back control move between home, devices, and photos", async () => {
+  const app = await launch({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:home-screen");
+  await app.press("id:open-devices");
+  await app.waitFor("id:connect-camera");
+  await app.press("id:area-photos");
+  await app.waitFor("id:album-photo-0");
+  expect(app.texts()).toContain("R0000001.JPG");
+  await app.press("id:area-devices");
+  await app.waitFor("id:connect-camera");
+  await app.press("id:back-home");
+  await app.waitFor("id:home-screen");
+  expect(app.shows("id:connect-camera")).toBe(false);
+  app.dispose();
+});
+
+test("my devices lists saved camera profiles", async () => {
+  const connectedIds: string[] = [];
+  const app = await launchInDevices({
+    folder: "/tmp/ricoh-mac-test-library",
+    wifiSettings: {
+      profile: savedProfile,
+      profiles: [savedProfile],
+      autoSwitchBack: true,
+      previousSsid: null,
+      canSwitchBack: false,
+      viaUtun: null,
+    },
+    wifiConnectProfile: async (id: string) => {
+      connectedIds.push(id);
+      return connectResultFromProbe(connected);
+    },
+  });
+  await app.waitFor("id:profile-list");
+  expect(app.texts()).toContain("已保存的相机");
+  expect(app.texts().some((line) => line.includes("GR_ABCD"))).toBe(true);
+  expect(app.shows("id:connect-camera")).toBe(false);
+  await app.press("id:connect-profile-s1");
+  await app.waitFor("id:photo-0");
+  expect(connectedIds).toEqual(["s1"]);
   app.dispose();
 });

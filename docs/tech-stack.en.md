@@ -106,7 +106,7 @@ The authority for the local album is the files on disk. The app index is a cache
 
 Rules:
 
-- Default scan scope is the photo files that sit directly in the target folder. Version 1 does not add a day-folder layer. Whether user-created subfolders inside that folder are scanned will be decided during implementation, and the UI should say so.
+- The scan scope is the photograph files that sit directly in the target folder. Version 1 does not add a day-folder layer, and it does not descend into subfolders. The native `Library.listPhotos` API is read-only: it does not create, rewrite, move, or delete files in that folder.
 - Store the index in SQLite under `data_dir()`, with relative path, file name, extension, size, optional checksum, capture time (if EXIF or `info` provides it), star rating (1 to 5, or unrated), flag (picked, rejected, or none), and import source.
 - SQLite is used because filters, sorts, and incremental updates stay consistent more easily than one JSON file, and later columns are easier to add.
 - When the index and the folder disagree, the disk wins: a refresh inserts new files and drops missing paths, and it must not delete originals on disk. If a sidecar exists, a refresh should reconcile it with the index.
@@ -257,16 +257,16 @@ The toolchain used for Milestone 1 is **NSH 0.5.1** (`nsh 0.5.1 (224d9a7)`), ins
 
 The mixed app lives in the repository root:
 
-- `App.tsx` is the TSX entry required by Native Shell: it sits beside `nsh.json` and only mounts the app. The interface lives under `ui/`. `ui/App.tsx` composes the shell; `ui/components/` holds the views; `ui/state/` holds signals and flows; `ui/lib/` holds helpers such as the thumbnail loader. The app uses a fixed dark appearance and a warm amber accent, with no product-name header and no persistent sidebar. A circular corner button opens settings only. Photographs are shown in a virtualized thumbnail grid through `List` `numColumns`. Visual tokens live in `ui/theme.ts`, copy in `ui/copy.ts`, selection helpers in `ui/state/selection.ts`, and interface icons in `ui/assets/icons/` (Kubai Icons 0.9.0, MIT, vendored; see `ui/assets/icons/SOURCE.txt`). The design record is in `DESIGN.md` and `PRODUCT.md` at the repository root.
+- `App.tsx` is the TSX entry required by Native Shell: it sits beside `nsh.json` and only mounts the app. The interface lives under `ui/`. `ui/App.tsx` composes the shell; `ui/components/` holds the views; `ui/state/` holds signals and flows; `ui/lib/` holds helpers such as the thumbnail loader. The app uses a fixed dark appearance and a warm amber accent, with no product-name header and no persistent sidebar. A circular corner button opens settings only. Photographs are shown in a virtualized thumbnail grid through `List` `numColumns`. Visual tokens live in `ui/theme.ts`, copy in `ui/copy.ts`, selection helpers in `ui/state/selection.ts`, and interface icons in `ui/assets/icons/` (Kubai Icons 0.9.0, MIT, vendored official color variant, with monochrome on-accent glyphs for primary buttons; see `ui/assets/icons/SOURCE.txt`). The design record is in `DESIGN.md` and `PRODUCT.md` at the repository root.
 - `src/lib.rs` exports Rust modules to TSX as `ricoh-mac/native`: `Library`, `Camera`, and `Wifi`.
-- `src/config.rs` stores the library folder and camera base URL in `config.json` under `data_dir()`, written with a temporary file and an atomic rename.
+- `src/config.rs` stores the save location and camera base URL in `config.json` under `data_dir()`, written with a temporary file and an atomic rename.
 - `src/camera.rs` is the read-only HTTP client: `GET /v1/ping`, `GET /v1/props`, `GET /v1/photos`, original-file download, and optional `size=thumb`. It does not issue POST or PUT requests. The default origin is `http://192.168.0.1` and can be changed in the UI for development.
-- `src/importer.rs` writes into the single library folder, keeps original file names, uses a `.partial` temporary file, skips name-and-size matches, and reports same-name conflicts without overwriting.
+- `src/importer.rs` writes into the single save location, keeps original file names, uses a `.partial` temporary file, skips name-and-size matches, and reports same-name conflicts without overwriting.
 - `src/mock_camera.rs` and `src/bin/mock-camera.rs` provide a local HTTP fixture for tests and for UI work without a camera.
 
 Long-running HTTP and file work run inside `blocking()`. `data_dir()` is read in async module functions before that work starts. Folder picking uses `pick_paths(OpenDialog::folders())`.
 
-Tests: `nsh test` runs the Rust unit and fixture tests (ping, list, download, deduplication, partial-download recovery, camera offline) and headless UI tests. The UI tests replace `ricoh-mac/native` through `open` `modules`, and they cover first launch, automatic listing after a successful connection, selection, disabled import actions, and the progress summary. They do not read the user’s real library or configuration. Those tests are not hardware validation.
+Tests: `nsh test` runs the Rust unit and fixture tests (ping, list, download, deduplication, partial-download recovery, camera offline) and headless UI tests. The UI tests replace `ricoh-mac/native` through `open` `modules`, and they cover first launch, automatic listing after a successful connection, selection, disabled import actions, and the progress summary. They do not read the user’s real save location or configuration. Those tests are not hardware validation.
 
 Development commands:
 

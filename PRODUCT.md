@@ -18,11 +18,11 @@ The primary user is the owner of a Ricoh GR IIIx, using a Mac to import photogra
 
 ## Product Purpose
 
-The application connects to a GR IIIx, switching to a saved camera Wi-Fi profile when one exists, lists photographs on the camera, and imports selected or all files into one local library folder, keeping original file names. Later milestones add a local album, star and flag culling, and RAW / DNG preview. Success in the current milestone means the user can choose a library folder, see a truthful connection state, browse camera photographs as a thumbnail grid, and import files without changing anything on the camera or overwriting complete local originals.
+The application connects to a GR IIIx, switching to a saved camera Wi-Fi profile when one exists, lists photographs on the camera, and imports selected or all files into one local save location, keeping original file names. Later milestones add a local album, star and flag culling, and RAW / DNG preview. Success in the current milestone means the user can choose a save location, see a truthful connection state, browse camera photographs as a thumbnail grid, and import files without changing anything on the camera or overwriting complete local originals.
 
 ## Positioning
 
-The product is a Mac desktop import and culling tool for the GR IIIx. Official Image Sync is phone-oriented. This application is built around a single library folder, original file names, a photograph-led dark workspace, and a read-only camera relationship.
+The product is a Mac desktop import and culling tool for the GR IIIx. Official Image Sync is phone-oriented. This application is built around a single save location, original file names, a photograph-led dark workspace, and a read-only camera relationship.
 
 ## Operating Context
 
@@ -32,12 +32,12 @@ The user turns on the camera wireless LAN. On first connection the app saves the
 
 Confirmed in Milestone 1:
 
-- The user chooses a library folder on first launch. The path is stored in the application data directory and can be changed later.
+- The user chooses a save location on first launch. The path is stored in the application data directory and can be changed later.
 - Connection uses read-only `GET /v1/ping` and `GET /v1/props`. A successful probe automatically loads the photograph list through `GET /v1/photos`. Thumbnails use `size=thumb` when the camera serves them, and are cached under the application data directory.
-- Import writes into the single library folder, keeps original names, uses a `.partial` temporary file, skips name-and-size matches, reports same-name size conflicts without overwriting, and continues after a per-file error. The app does not delete, rename, or rewrite files on the camera.
-- The interface is fixed dark, uses concise Chinese copy, has no product-name header, and has no persistent sidebar. A circular icon in the corner opens settings only (library folder, camera network profile, and advanced camera URL). Photographs occupy a virtualized thumbnail grid.
+- Import writes into the single save location, keeps original names, uses a `.partial` temporary file, skips name-and-size matches, reports same-name size conflicts without overwriting, and continues after a per-file error. The app does not delete, rename, or rewrite files on the camera.
+- The interface is fixed dark, uses concise Chinese copy, has no product-name header, and has no persistent sidebar. A circular icon in the corner opens settings only (save location, camera network profile, and camera address). Photographs occupy a virtualized thumbnail grid.
 - Primary import is “import selected.” “Import all” is secondary. Keyboard shortcuts for this milestone are Command-A (select all), Escape (clear selection or close settings), Command-Return (import selected), and Command-R (refresh the list). These shortcuts do not intercept text entry. Shift-click range selection uses NSH `PressEvent` modifiers.
-- Version 1 switches Wi-Fi automatically using a saved camera profile. The password is stored in the macOS Keychain. Location Services may be requested once so the app can read the current SSID; if permission is denied, the user types the name shown on the camera. Automatic switching falls back to manual-join guidance on failure. If the route to the camera goes through a `utun` tunnel, the interface shows a hint.
+- Version 1 switches Wi-Fi automatically using a saved camera profile. The password is stored in the macOS Keychain. Location Services may be requested once so the app can read the current network name; if permission is denied, the user types the name shown on the camera. Automatic switching falls back to manual-join guidance on failure. If a proxy is intercepting the camera network, the interface shows a hint.
 
 Out of scope for Milestone 1, and still planned for later milestones: local album browsing, 1 to 5 stars, picked and rejected flags, and RAW / DNG preview. AI-assisted culling, Developer ID signing, notarization, and installer distribution are outside version 1.
 

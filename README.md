@@ -31,6 +31,15 @@ Not in version 1:
 
 The version 1 stack is [Native Shell](https://nsh.dev/) 0.5.x, mixed TSX and Rust. Milestone 1 is pinned to NSH 0.5.1 (`nsh 0.5.1 (224d9a7)`). Details are in the technical design.
 
+## Interface
+
+On launch, the app shows two feature entries:
+
+- **照片 (Photos):** browses photographs already imported into the single save location. It works without a camera connection. The album is a thumbnail grid and a large-image viewer. The viewer provides previous and next controls, and keyboard shortcuts for navigation, opening and closing, fitting or actual size, and file information. A compact hint and a “?” list document those shortcuts. The app reads that folder and does not modify original files.
+- **设备 (Devices):** lists saved camera profiles, connects to the camera with automatic Wi-Fi switching (the password is stored in the macOS Keychain), then browses, selects, and imports photographs. After an import finishes, 查看照片 opens 照片.
+
+The window has no product-name header and no persistent sidebar. A compact segmented control switches between the two areas, and a back control returns to the home screen. The circular icon is a corner settings entry.
+
 ## Develop, test, and run
 
 Requires NSH 0.5.1, a Rust toolchain, and Xcode Command Line Tools. The official NSH installer places the binary under `~/.nsh` and links `~/.local/bin/nsh`. Add `~/.local/bin` to `PATH` if the shell cannot find `nsh`.
@@ -61,7 +70,7 @@ cargo run --bin mock-camera
 
 The fixture listens on `http://127.0.0.1:8080` by default (pass a bind address to change it). In Settings, set the camera address to that origin, then use the on-screen actions labeled 连接相机, 导入已选, or 全部导入. The fixture is for development and tests only; it is not a real camera.
 
-On first launch, choose a library folder. To connect a real GR IIIx, turn on the camera wireless LAN. The first time, save the SSID and password shown on the camera (or confirm the current network if the Mac is already joined). The password is stored in the macOS Keychain. Later, Connect Camera switches to that network automatically and, after import, switches back to the previous network by default. macOS may ask for Location Services so the app can read the current SSID; you can decline and type the name instead. The first Keychain write may also ask for permission. If automatic switching fails, join the camera network in System Settings and try again. If the Mac still needs internet while it is on the camera network, use Ethernet or iPhone USB tethering. If a proxy such as Clash Verge is in TUN mode and hijacks `192.168.0.1`, exclude that address from the proxy.
+On launch, the app shows 照片 and 设备. Choose a save location when prompted, or from Settings. To connect a real GR IIIx, open 设备 and turn on the camera wireless network. The first time, save the network name and password shown on the camera (or confirm the current network if the Mac is already joined). The password is stored in the macOS Keychain. Later, 连接相机 switches to that network automatically and, after import, switches back to the previous network by default. macOS may ask for Location Services so the app can fill in the current network name; you can decline and type the name instead. The first Keychain write may also ask for permission. If automatic switching fails, join the camera network in System Settings and try again. If the Mac still needs internet while it is on the camera network, use a wired connection or iPhone tethering. If a proxy is intercepting the camera network, exclude that network from the proxy and try again.
 
 ## Third-party fonts
 

@@ -58,7 +58,7 @@ Each item has a user story and acceptance criteria. Clauses that depend on the c
 
 ### 4.1 Connect to the camera over Wi-Fi
 
-**User story:** As a user, after I turn on the camera Wi-Fi, I can choose Connect Camera, join the saved camera network, probe the camera, and see whether the connection succeeded, failed, or still needs a profile.
+**User story:** As a user, I open 设备, see the saved camera profiles, and after I turn on the camera Wi-Fi I can connect from a profile, join the saved camera network, probe the camera, and see whether the connection succeeded, failed, or still needs a profile.
 
 **Decision:** Version 1 saves a camera profile on first connection (model, serial, and firmware when available, plus the camera Wi-Fi SSID) and stores the Wi-Fi password in the macOS Keychain, never in a plaintext config file. Later, Connect Camera switches the Mac to that SSID, waits for `192.168.0.1`, then probes and loads photographs. The app remembers the previous network and, by default, switches back after import or when the user disconnects, and also offers a clear switch-back action in the interface. This supersedes the earlier decision that version 1 would only support joining the camera Wi-Fi by hand. If automatic switching fails, the app falls back to manual-join guidance.
 
@@ -66,10 +66,10 @@ Each item has a user story and acceptance criteria. Clauses that depend on the c
 
 - The app gives clear steps: turn on the camera wireless LAN. If no profile is saved yet, the user can enter the SSID and password shown on the camera LCD (the official [Image Sync connection method](https://www.ricoh-imaging.co.jp/english/products/app/image-sync2/connect.html) says the password can be displayed on the camera LCD; the exact camera menu follows the [operating manual](https://www.ricoh-imaging.co.jp/english/support/man-pdf/gr-3x.pdf)). If the Mac is already on the camera network, the app captures the current SSID when permission allows and asks only for the password.
 - After a profile is saved, Connect Camera switches to the saved SSID, waits for the camera at `192.168.0.1`, then probes reachability with read-only requests and shows success, failure, or timeout. It must not present an unverified state as connected.
-- The password is stored only in the macOS Keychain. Profile metadata is stored in the application data directory. The settings panel can edit or delete the current profile. The data model supports multiple profiles; the current interface focuses on one camera.
+- The password is stored only in the macOS Keychain. Profile metadata is stored in the application data directory. 设备 lists saved camera profiles and can connect from a chosen profile. The settings panel can edit or delete the current profile.
 - On failure, the app shows an understandable reason (wrong password, camera wireless LAN off, timeout, location permission denied, or failed to join) and does not change camera state. If automatic switching fails, it falls back to manual-join guidance.
 - After import, the app switches back to the previous network by default, and the interface also offers Switch Back. The user can turn off automatic switch-back.
-- If the route to `192.168.0.1` goes through a `utun` or similar tunnel interface (for example Clash Verge in TUN mode), the interface shows a clear hint.
+- If a proxy is intercepting the route to the camera, the interface shows a clear hint that the camera may be unreachable, and asks the user to exclude the camera network from the proxy and try again.
 - The app does not require the official Image Sync app to be installed or paired first. Whether official-app or Bluetooth pairing is required is to be validated on hardware.
 
 Public sources (not an official SDK; to be validated on hardware): several independent write-ups say that a GR IIIx in Wi-Fi mode acts as an access point, that an HTTP service listens at `http://192.168.0.1/` on port 80, and that `GET /v1/ping` and `GET /v1/props` are used as read-only probes. Sources: the [secretsauce reverse-engineering note](https://notes.secretsauce.net/notes/2022/06/16_ricoh-gr-iiix-80211-reverse-engineering.html), [Namako's GR3x write-up](https://namako.tw/2024/05/11/gr3x-wireless-api/), the [CursedHardware community OpenAPI](https://github.com/CursedHardware/ricoh-wireless-protocol), and [snmkl/ricoh.app](https://github.com/snmkl/ricoh.app). Ricoh has not published an official HTTP SDK under these names.
@@ -88,21 +88,23 @@ Public sources (not an official SDK; to be validated on hardware): several indep
 - Imports write to a temporary file in the same folder and move to the final path only after the copy is complete. A later import of the same file should resume or re-validate, and must not overwrite a complete file whose content already matches.
 - If two source files would land on the same name in the target folder but their content differs, the app must report a conflict and must not overwrite a complete original that is already there.
 - Import must not modify, delete, or move originals on the camera.
+- After an import finishes, the interface offers 查看照片, which opens 照片.
 - If the camera can serve DNG over the wireless path, version 1 should import DNG. If a real camera can only serve JPEG over Wi-Fi, the app must say so clearly and must not label a JPEG as RAW. If wireless transfer cannot deliver DNG, how version 1 should still meet the RAW preview requirement will be decided after testing on a real camera.
 
 Public sources (to be validated on hardware): community clients commonly use `GET /v1/photos` to list folders and files, `GET /v1/photos/{folder}/{file}` to download the original, `?size=thumb` for a thumbnail, and `GET /v1/photos/{folder}/{file}/info` for metadata. Preview size parameters disagree: Namako records `size=xs` (about 1920×1080), snmkl/ricoh.app records `size=view`, and the community OpenAPI lists `xs`, `view`, and `thumb` with pixel sizes that do not fully match those write-ups. The query parameters and the JSON shape must be checked on a real camera. The community OpenAPI download response includes `image/jpeg` and `image/x-adobe-dng`, which suggests a full-file download may include DNG. Official Image Sync documentation says that resize-before-transfer supports JPEG only. Whether a complete DNG can be transferred over Wi-Fi therefore cannot be settled from official text alone.
 
 ### 4.3 Browse a local album
 
-**User story:** As a user, after I choose a local folder as the album root, I can browse photos and thumbnails in it, open a large view, and go back to the list.
+**User story:** As a user, I can open 照片 without connecting a camera, browse thumbnails of files already imported into the save location, open a large view, and move to the previous or next photo.
 
 **Acceptance criteria:**
 
-- The user chooses the album root with the system folder dialog. That folder is also the single import target. The app reads only that tree. It must not scan the system Photos library or other unauthorized paths.
-- Lists and thumbnails remain usable with no camera and no network.
-- After opening a photo, the user can go back and can move to the previous or next photo in the same folder.
-- A file that cannot be decoded shows an explanation, not an empty frame.
-- After a refresh or after entering a folder again, files added later inside the agreed scan scope should appear.
+- 照片 is available from the home screen, from the in-app area switch, and from 查看照片 after an import. It does not require a camera connection or a network.
+- The user chooses the album root with the system folder dialog. That folder is also the single import target. The app lists photograph files that sit directly in that folder. It does not descend into subfolders, and it must not scan the system Photos library or other unauthorized paths.
+- The interface shows a virtualized thumbnail grid and a large-image viewer. After opening a photo, the user can close the viewer and can move to the previous or next photo in the same folder.
+- A file that cannot be decoded, including a DNG or other RAW file for which this interface has no raster preview, shows an explanation, not an empty frame.
+- Browsing is read-only. The app must not create, rewrite, move, or delete original files in the save location.
+- After a refresh or after entering 照片 again, files added later inside the agreed scan scope should appear.
 
 ### 4.4 Fast culling, stars, or flags
 
@@ -177,8 +179,9 @@ The version 1 interface follows the [Impeccable](https://impeccable.style/) Oper
 - The whole app uses a fixed dark appearance. The accent is warm amber, reserved for the primary action, selection, and focus.
 - Interface copy is concise Chinese.
 - There is no product-name header and no persistent sidebar.
-- The circular icon button is a corner settings entry only. It holds the library folder control and the advanced camera URL. It is not primary navigation.
-- Photographs are shown in a virtualized thumbnail grid. “Import selected” is the primary action. “Import all” is secondary.
+- On launch, the app shows two feature entries: 设备 and 照片. Inside an area, a compact segmented control switches between them, and a back control returns to the home screen.
+- The circular icon button is a corner settings entry only. It holds the save location control, the camera network profile, and the camera address. It is not primary navigation.
+- In 设备, photographs on the camera are shown in a virtualized thumbnail grid. “Import selected” is the primary action. “Import all” is secondary. In 照片, a click or tap opens the large-image viewer rather than a selection for import.
 - “Not yet connected” is not shown as an error before a connection has been attempted. A successful probe loads the photograph list automatically. Import progress, skips, conflicts, and errors are distinct.
 
 Visual tokens and component rules are in [DESIGN.md](../DESIGN.md).
@@ -190,8 +193,8 @@ Visual tokens and component rules are in [DESIGN.md](../DESIGN.md).
 The following is an implementation sequence, not a dated schedule.
 
 1. **M0 Documentation:** Product requirements and technical design.
-2. **M1 Library, connection, listing, and import:** Choose and persist the library folder; save a camera network profile and later switch Wi-Fi automatically, then probe the camera; list photos; import selected or all files into that folder. Scope and acceptance criteria are in section 11. The interface follows the UX decisions in section 6.
-3. **M2 Local album browsing:** Browse thumbnails and large views of files already in the library folder, including use without the camera.
+2. **M1 Library, connection, listing, and import:** Choose and persist the save location; save a camera network profile and later switch Wi-Fi automatically, then probe the camera; list photos; import selected or all files into that folder. Scope and acceptance criteria are in section 11. The interface follows the UX decisions in section 6.
+3. **M2 Local album browsing:** Browse thumbnails and large views of files already in the save location, including use without the camera.
 4. **M3 Culling:** 1 to 5 stars, picked and rejected flags, filters, and persistence in XMP sidecars and SQLite.
 5. **M4 RAW preview:** Embedded preview for local DNG. DNG in the camera list, and how version 1 meets the preview requirement if wireless transfer cannot deliver DNG, follow real-camera test results.
 
@@ -246,24 +249,45 @@ Design and platform:
 
 ## 11. Milestone 1
 
-Milestone 1 covers the first working path from a local library folder to a read-only camera probe, a photo list, and an import into that folder. Camera HTTP behavior is documented from community sources and is to be validated on hardware.
+Milestone 1 covers the first working path from a local save location to a read-only camera probe, a photo list, and an import into that folder. Camera HTTP behavior is documented from community sources and is to be validated on hardware.
 
 ### 11.1 Scope
 
-1. On first launch, the user chooses a local library folder. The path is saved in the application data directory and can be changed later.
+1. On first launch, the user chooses a local save location. The path is saved in the application data directory and can be changed later.
 2. On first connection, the app saves a camera profile (model, serial, and firmware when available, plus the camera Wi-Fi SSID) and stores the password in the macOS Keychain. Later, Connect Camera switches to the saved SSID, waits for `192.168.0.1`, then probes the camera with read-only requests (`GET /v1/ping` and `GET /v1/props`) and shows connected or not connected status, plus model information when it is available. If automatic switching fails, the app falls back to manual-join guidance. The app recommends Ethernet or iPhone USB tethering if the Mac still needs internet while it is on the camera network. After import, it switches back to the previous network by default, and the interface also offers a clear switch-back action. If the route to the camera goes through a `utun` tunnel, the interface shows a hint. The camera HTTP origin is configurable for development; the default is `http://192.168.0.1`.
 3. The app lists photos on the camera with `GET /v1/photos`, and requests thumbnails with `size=thumb` when that parameter is available.
-4. The user can download selected photos or all listed photos into the single library folder. Original file names are kept. Each file is written to a temporary file in the same folder, checked against the expected size when it is known, then renamed into place. A file that is already present with the same name and size is skipped. Progress and per-file errors are shown. The app does not delete, rename, or rewrite files on the camera, and does not overwrite a complete local file whose size differs (that case is reported as a conflict).
+4. The user can download selected photos or all listed photos into the single save location. Original file names are kept. Each file is written to a temporary file in the same folder, checked against the expected size when it is known, then renamed into place. A file that is already present with the same name and size is skipped. Progress and per-file errors are shown. The app does not delete, rename, or rewrite files on the camera, and does not overwrite a complete local file whose size differs (that case is reported as a conflict).
 
 Ratings, flags, RAW develop, and distribution are outside Milestone 1.
 
 ### 11.2 Acceptance criteria
 
-- If no library folder is saved, the UI asks the user to choose one before import. After a folder is chosen, the path is shown and can be changed.
+- If no save location is saved, the UI asks the user to choose one before import. After a folder is chosen, the path is shown and can be changed.
 - A probe reports success only after a successful read-only ping. Failure and timeout are shown as not connected, not as connected. Model and firmware are shown when `GET /v1/props` provides them.
 - The UI includes first-time profile capture, later automatic switching, switch-back after import, and manual-join guidance as a fallback, plus the Ethernet or USB-tethering recommendation. The password does not appear in the config file. If the route to the camera goes through a tunnel interface, the interface shows a hint.
 - A photo list is shown after a successful `GET /v1/photos`. An empty, failed, or unparsable list is explained and is not presented as a healthy empty camera state.
 - Import keeps original names in the chosen folder, uses a `.partial` temporary file, skips name-and-size matches, reports same-name size conflicts without overwriting, and continues after a per-file error.
-- When no library folder is chosen, the first screen only asks the user to choose a folder. It does not present an unattempted connection as an error. A successful probe loads photographs automatically and shows them in a virtualized thumbnail grid.
+- An unattempted connection is not presented as an error. A successful probe loads photographs automatically and shows them in a virtualized thumbnail grid.
 - “Import selected” is the primary action, and “Import all” is secondary. Actions that would start another import are disabled while an import is running. The progress bar shows the current file name. The completion summary distinguishes imported, skipped, conflict, and error counts.
 - Headless tests cover ping, listing, download, deduplication, partial-download recovery, and a camera-offline case against a local mock HTTP fixture. Interface tests cover the first-run flow, selection, disabled import actions, and the progress summary against isolated module stand-ins. These tests are not a substitute for hardware validation.
+
+## 12. Milestone 2
+
+Milestone 2 covers local album browsing and the two-entry information architecture. Stars, flags, filtering, and an improved RAW preview remain outside this milestone.
+
+### 12.1 Scope
+
+1. On launch, the app shows two feature entries: 设备 and 照片. The user can move between those areas with a compact segmented control, and can return to the home screen with a back control.
+2. 设备 lists saved camera profiles, keeps the automatic Wi-Fi switching and Keychain password flow from Milestone 1, and is the place to connect, browse, select, and import camera photographs.
+3. After an import finishes, the interface offers 查看照片, which opens 照片.
+4. 照片 lists photograph files that already sit in the single save location, shows a thumbnail grid and a large-image viewer, and remains usable with no camera connection. The listing is read-only and does not descend into subfolders.
+
+### 12.2 Acceptance criteria
+
+- Launch shows 设备 and 照片 and does not present an unattempted connection as an error.
+- 设备 can list saved profiles and connect from a chosen profile, then browse and import as in Milestone 1.
+- 照片 can be opened with no camera connection. If no save location is saved, the area asks the user to choose one.
+- The album grid shows files that sit directly in the save location, including JPEG and DNG names. Hidden files, `.partial` files, and non-photograph files are omitted.
+- Opening a photograph shows a large view. The user can close that view and can move to the previous or next photograph. A file that cannot be displayed shows an explanation, not an empty frame.
+- Browsing does not modify original files in the save location.
+- After import, 查看照片 opens 照片 and shows the imported files.

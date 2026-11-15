@@ -80,7 +80,7 @@ impl SecretStore for MacKeychain {
                 account,
                 secret.as_bytes(),
             )
-            .map_err(|err| AppError::msg(format!("无法把 Wi-Fi 密码写入钥匙串：{err}")))
+            .map_err(|_err| AppError::msg("无法把密码存入钥匙串。"))
         }
         #[cfg(not(target_os = "macos"))]
         {
@@ -95,7 +95,7 @@ impl SecretStore for MacKeychain {
             match security_framework::passwords::get_generic_password(&self.service, account) {
                 Ok(bytes) => String::from_utf8(bytes)
                     .map(Some)
-                    .map_err(|err| AppError::msg(format!("钥匙串中的密码不是有效文本：{err}"))),
+                    .map_err(|_err| AppError::msg("钥匙串中的密码无法读取，请重新输入。")),
                 Err(err) => {
                     let text = err.to_string();
                     if text.contains("could not be found")
@@ -104,9 +104,7 @@ impl SecretStore for MacKeychain {
                     {
                         Ok(None)
                     } else {
-                        Err(AppError::msg(format!(
-                            "无法从钥匙串读取 Wi-Fi 密码：{text}"
-                        )))
+                        Err(AppError::msg("无法从钥匙串读取密码。"))
                     }
                 }
             }
@@ -131,9 +129,7 @@ impl SecretStore for MacKeychain {
                     {
                         Ok(())
                     } else {
-                        Err(AppError::msg(format!(
-                            "无法从钥匙串删除 Wi-Fi 密码：{text}"
-                        )))
+                        Err(AppError::msg("无法从钥匙串删除密码。"))
                     }
                 }
             }

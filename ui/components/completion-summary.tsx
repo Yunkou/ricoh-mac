@@ -3,11 +3,12 @@ import type { Signal } from "nsh";
 import { copy } from "../copy";
 import type { ImportPhase } from "../state/connection";
 import { color, font, space, type } from "../theme";
+import { Button } from "./button";
 import { FadeEnter } from "./fade-enter";
 import { Icon, type IconName } from "./icon";
 import { progressBar } from "./import-progress";
 
-export function CompletionSummary(props: { importPhase: Signal<ImportPhase> }) {
+export function CompletionSummary(props: { importPhase: Signal<ImportPhase>; onViewImported: () => void }) {
   return (
     <FadeEnter>
       <View
@@ -31,6 +32,13 @@ export function CompletionSummary(props: { importPhase: Signal<ImportPhase> }) {
               {summaryLabel(props.importPhase())}
             </Text>
           </View>
+          <Button
+            label={copy.viewImported}
+            kind="secondary"
+            testID="view-imported"
+            icon="images"
+            onPress={props.onViewImported}
+          />
           {issueLines(props.importPhase()).map((issue) => (
             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
               <Icon name={issue.status === "conflict" ? "circle-alert" : "circle-x"} size={14} />

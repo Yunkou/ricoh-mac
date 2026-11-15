@@ -1,22 +1,34 @@
 import { chillDINGothicStack } from "./assets/fonts";
 
 export const color = {
-  bg: "#111110",
-  surface: "#1A1917",
-  raised: "#22211E",
+  bg: "transparent",
+  surface: "#1A1917B8",
+  raised: "#22211ECC",
+  input: "#11111099",
   text: "#F2F0EC",
   secondary: "#A39E96",
   tertiary: "#948F86",
-  border: "#2E2C28",
+  border: "#FFFFFF1F",
   accent: "#D8A45A",
   accentHover: "#E0B06A",
   onAccent: "#161513",
   success: "#7EA77A",
   warning: "#E09040",
   danger: "#D67A76",
-  thumb: "#0E0E0D",
+  thumb: "#0E0E0DCC",
   overlay: "#00000099",
+  segment: "#FFFFFF14",
 } as const;
+
+/** A translucent layer over the window vibrancy (`macos={{ backdrop }}`). */
+export const panelBackdrop = {
+  material: "popover" as const,
+  blending: "withinWindow" as const,
+  state: "followsWindowActiveState" as const,
+};
+
+/** Height of the hidden title bar in `nsh.json`, in points. */
+export const titleBarHeight = 52;
 
 export const type = {
   badge: 10,
@@ -24,11 +36,13 @@ export const type = {
   body: 13,
   emphasis: 15,
   title: 20,
+  display: 32,
   lineBadge: 14,
   lineMeta: 16,
   lineBody: 18,
   lineEmphasis: 20,
   lineTitle: 26,
+  lineDisplay: 40,
 } as const;
 
 export const font = {
@@ -87,7 +101,7 @@ export const inputStyle = {
   borderWidth: 1,
   borderColor: color.border,
   color: color.text,
-  backgroundColor: color.bg,
+  backgroundColor: color.input,
   fontFamily: font.family,
   fontSize: type.body,
   fontWeight: font.regular,

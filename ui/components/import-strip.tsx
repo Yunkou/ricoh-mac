@@ -3,13 +3,16 @@ import type { ImportPhase } from "../state/connection";
 import { CompletionSummary } from "./completion-summary";
 import { ImportProgress } from "./import-progress";
 
-export function ImportStrip(props: { importPhase: Signal<ImportPhase> }) {
+export function ImportStrip(props: {
+  importPhase: Signal<ImportPhase>;
+  onViewImported: () => void;
+}) {
   return (
     <>
       {props.importPhase().kind === "running" ? (
         <ImportProgress importPhase={props.importPhase} />
       ) : props.importPhase().kind === "done" ? (
-        <CompletionSummary importPhase={props.importPhase} />
+        <CompletionSummary importPhase={props.importPhase} onViewImported={props.onViewImported} />
       ) : null}
     </>
   );

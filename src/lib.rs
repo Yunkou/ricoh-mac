@@ -1,5 +1,6 @@
 //! Native modules used by `App.tsx`: library settings, camera probe, listing, and import.
 
+mod album;
 mod camera;
 mod config;
 mod connect;
@@ -10,11 +11,13 @@ pub mod mock_camera;
 mod profile;
 mod wifi;
 
+
 use std::path::{Path, PathBuf};
 
 use nsh_core::file_dialog::OpenDialog;
 use nsh_core::prelude::*;
 
+use album::{file_url, list_imported_photos};
 use camera::{CameraClient, CameraPhoto};
 use config::{AppConfig, DEFAULT_CAMERA_BASE_URL, normalize_camera_base_url};
 use connect::{
@@ -27,7 +30,8 @@ use importer::{
 };
 use keychain::MacKeychain;
 use profile::{
-    CameraProfile, ProfileStore, WifiSession, delete_profile, save_profile, set_auto_switch_back,
+    CameraProfile, ProfileStore, WifiSession, delete_profile, save_profile, set_active_profile,
+    set_auto_switch_back,
 };
 use wifi::SystemWifi;
 
@@ -101,6 +105,45 @@ impl Library {
     pub async fn reset_camera_base_url() -> Result<String, String> {
         Self::set_camera_base_url(DEFAULT_CAMERA_BASE_URL.to_string()).await
     }
+
+    /// List photographs already imported into the library folder.
+    ///
+    /// The listing is read-only. It does not create, rewrite, move, or delete
+    /// files, and it does not descend into subfolders.
+    pub async fn list_photos() -> Result<Vec<LibraryPhoto>, String> {
+        let folder = load_config()?
+            .library_folder
+            .ok_or_else(|| "请先选择保存位置。".to_string())?;
+        let path = PathBuf::from(folder);
+        let listed = blocking(move || list_imported_photos(&path))
+            .await
+            .map_err(|err| err.to_string())??;
+        Ok(listed
+            .into_iter()
+            .map(|photo| LibraryPhoto {
+                id: photo.file.clone(),
+                file: photo.file,
+                size: photo.size.map(|value| value as f64),
+                path: photo.path.display().to_string(),
+                preview_url: photo.previewable.then(|| file_url(&photo.path)),
+            })
+            .collect())
+    }
+}
+
+/// A photograph already present in the library folder.
+#[derive(Debug, Clone, JsObject)]
+pub struct LibraryPhoto {
+    /// File name, also used as the identifier in the single import folder.
+    pub id: String,
+    /// Original file name.
+    pub file: String,
+    /// Size in bytes, when known.
+    pub size: Option<f64>,
+    /// Absolute path on disk.
+    pub path: String,
+    /// `file:` URL for raster formats the image view can display. Absent for DNG in this version.
+    pub preview_url: Option<String>,
 }
 
 /// Connection status returned to the UI.
@@ -320,6 +363,8 @@ pub struct ProfileView {
 pub struct WifiSettings {
     /// Active profile, when one is saved.
     pub profile: Option<ProfileView>,
+    /// All saved camera profiles, most recently used first.
+    pub profiles: Vec<ProfileView>,
     /// Switch back to the previous network after import by default.
     pub auto_switch_back: bool,
     /// Previous SSID remembered for this session.
@@ -421,12 +466,12 @@ fn switch_back_result(outcome: SwitchBackOutcome) -> SwitchBackResult {
         SwitchBackOutcome::Restored { ssid } => SwitchBackResult {
             kind: "restored".to_string(),
             ssid: Some(ssid.clone()),
-            message: format!("已切换回 {ssid}"),
+            message: format!("已切回 {ssid}"),
         },
         SwitchBackOutcome::NotNeeded => SwitchBackResult {
             kind: "not_needed".to_string(),
             ssid: None,
-            message: "当前不需要切换回原来的网络。".to_string(),
+            message: "当前不需要切回原来的网络。".to_string(),
         },
         SwitchBackOutcome::Failed { message } => SwitchBackResult {
             kind: "failed".to_string(),
@@ -450,8 +495,11 @@ fn load_wifi_settings(dir: &Path) -> Result<WifiSettings, String> {
     let store = ProfileStore::load(dir)?;
     let session = WifiSession::load(dir)?;
     let via_utun = tunnel_hint(&SystemWifi);
+    let mut listed = store.profiles.clone();
+    listed.sort_by_key(|left| std::cmp::Reverse(left.last_used_at));
     Ok(WifiSettings {
         profile: store.active().map(profile_view),
+        profiles: listed.iter().map(profile_view).collect(),
         auto_switch_back: store.auto_switch_back,
         previous_ssid: session.previous_ssid.clone(),
         can_switch_back: session.switched && session.previous_ssid.is_some(),
@@ -482,6 +530,14 @@ impl Wifi {
         Ok(connect_result(outcome))
     }
 
+    /// Make a saved profile active, then connect using that profile.
+    pub async fn connect_profile(id: String) -> Result<ConnectResult, String> {
+        let dir = data_directory()?;
+        blocking(move || set_active_profile(&dir, &id))
+            .await
+            .map_err(|err| err.to_string())??;
+        Self::connect().await
+    }
     /// Save a camera Wi-Fi profile and then connect, possibly switching networks.
     pub async fn save_and_connect(
         ssid: String,

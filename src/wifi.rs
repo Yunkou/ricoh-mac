@@ -28,10 +28,10 @@ impl std::error::Error for WifiError {}
 impl WifiError {
     pub fn message(&self) -> String {
         match self {
-            Self::PermissionDenied => "没有读取当前 Wi-Fi 名称的权限。可在系统设置的「隐私与安全性 > 定位服务」中允许本应用，或手动输入相机屏幕上的网络名称。".to_string(),
-            Self::WrongPassword => "无法加入相机 Wi-Fi，密码可能不正确。".to_string(),
-            Self::Timeout => "等待相机网络超时。请确认相机无线局域网已打开。".to_string(),
-            Self::InterfaceNotFound => "找不到本机的 Wi-Fi 接口。".to_string(),
+            Self::PermissionDenied => "没有读取当前网络名称的权限。可在系统设置的「隐私与安全性 > 定位服务」中允许本应用，或手动输入相机屏幕上的名称。".to_string(),
+            Self::WrongPassword => "无法加入相机网络，密码可能不正确。".to_string(),
+            Self::Timeout => "等待相机网络超时。请确认相机无线网络已打开。".to_string(),
+            Self::InterfaceNotFound => "找不到本机的无线网络。".to_string(),
             Self::CommandFailed(text) => text.clone(),
         }
     }
@@ -48,12 +48,10 @@ pub trait WifiController {
 pub fn validate_ssid(ssid: &str) -> Result<&str, WifiError> {
     let ssid = ssid.trim();
     if ssid.is_empty() {
-        return Err(WifiError::CommandFailed(
-            "请填写相机 Wi-Fi 名称".to_string(),
-        ));
+        return Err(WifiError::CommandFailed("请填写网络名称".to_string()));
     }
     if ssid.len() > 32 || ssid.bytes().any(|b| b < 0x20) {
-        return Err(WifiError::CommandFailed("Wi-Fi 名称无效。".to_string()));
+        return Err(WifiError::CommandFailed("网络名称无效。".to_string()));
     }
     Ok(ssid)
 }
@@ -61,12 +59,10 @@ pub fn validate_ssid(ssid: &str) -> Result<&str, WifiError> {
 /// A WPA password is 1 to 63 bytes and must not contain NUL.
 pub fn validate_password(password: &str) -> Result<&str, WifiError> {
     if password.is_empty() {
-        return Err(WifiError::CommandFailed(
-            "请填写相机 Wi-Fi 密码".to_string(),
-        ));
+        return Err(WifiError::CommandFailed("请填写密码".to_string()));
     }
     if password.len() > 63 || password.contains('\0') {
-        return Err(WifiError::CommandFailed("Wi-Fi 密码无效。".to_string()));
+        return Err(WifiError::CommandFailed("密码无效。".to_string()));
     }
     Ok(password)
 }
@@ -173,7 +169,7 @@ pub fn classify_join_output(stdout: &str, stderr: &str, success: bool) -> Result
         if !success || lower.contains("failed") || lower.contains("error") {
             let detail = combined.trim();
             if detail.is_empty() {
-                return Err(WifiError::CommandFailed("无法加入相机 Wi-Fi。".to_string()));
+                return Err(WifiError::CommandFailed("无法加入相机网络。".to_string()));
             }
             return Err(WifiError::CommandFailed(detail.to_string()));
         }

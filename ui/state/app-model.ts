@@ -4,6 +4,7 @@ import { Camera, Library, Wifi } from "ricoh-mac/native";
 import type {
   ConnectResult,
   ImportProgress as ImportProgressEvent,
+  LibraryPhoto,
   WifiSettings,
 } from "ricoh-mac/native";
 import { copy } from "../copy";
@@ -28,12 +29,15 @@ import {
 
 const defaultWifiSettings: WifiSettings = {
   profile: null,
+  profiles: [],
   autoSwitchBack: true,
   previousSsid: null,
   canSwitchBack: false,
   viaUtun: null,
 };
 
+export type MainArea = "home" | "devices" | "photos";
+export type AlbumPhoto = LibraryPhoto;
 
 export function createAppModel() {
   const libraryFolder = signal<string | null>(null);
@@ -47,6 +51,8 @@ export function createAppModel() {
   const importPhase = signal<ImportPhase>({ kind: "idle" });
   const notice = signal("");
   const settingsOpen = signal(false);
+  const showDevices = signal(false);
+  const showPhotos = signal(false);
   const settingsAnchor = signal<ViewRef | null>(null);
   const wifiSettings = signal<WifiSettings>(defaultWifiSettings);
   const ssidDraft = signal("");
@@ -55,6 +61,10 @@ export function createAppModel() {
   const focusedId = signal<string | null>(null);
   const rangeAnchor = signal<number | null>(null);
   const listing = signal(false);
+  const mainArea = signal<MainArea>("home");
+  const albumPhotos = signal<AlbumPhoto[]>([]);
+  const albumListing = signal(false);
+  const viewingId = signal<string | null>(null);
   const thumbLoader = createThumbLoader({
     concurrency: 4,
     load: (item) => Camera.loadThumbnail(item.folder, item.file),
@@ -108,6 +118,7 @@ export function createAppModel() {
       const path = await Library.pickFolder();
       if (path) {
         libraryFolder.set(path);
+        await loadAlbum();
       }
     } catch (err) {
       notice.set(String(err));
@@ -324,6 +335,124 @@ export function createAppModel() {
     }
   }
 
+  async function loadAlbum() {
+    if (!libraryFolder()) {
+      albumPhotos.set([]);
+      viewingId.set(null);
+      return;
+    }
+    albumListing.set(true);
+    notice.set("");
+    try {
+      const items = await Library.listPhotos();
+      albumPhotos.set(items);
+      const current = viewingId();
+      if (current && !items.some((photo) => photo.id === current)) {
+        viewingId.set(null);
+      }
+    } catch (err) {
+      albumPhotos.set([]);
+      viewingId.set(null);
+      notice.set(`${copy.albumListFailed} ${String(err)}`);
+    } finally {
+      albumListing.set(false);
+    }
+  }
+
+  function goHome() {
+    mainArea.set("home");
+    showDevices.set(false);
+    showPhotos.set(false);
+    viewingId.set(null);
+    settingsOpen.set(false);
+  }
+
+  function openDevices() {
+    mainArea.set("devices");
+    showDevices.set(true);
+    showPhotos.set(false);
+    viewingId.set(null);
+    settingsOpen.set(false);
+  }
+
+  async function openPhotos() {
+    mainArea.set("photos");
+    showDevices.set(false);
+    showPhotos.set(true);
+    viewingId.set(null);
+    settingsOpen.set(false);
+    await loadAlbum();
+  }
+
+  function openAlbumPhoto(id: string) {
+    focusedId.set(id);
+    viewingId.set(id);
+  }
+
+  function closeViewer() {
+    viewingId.set(null);
+  }
+
+  function showAdjacentPhoto(delta: number) {
+    const current = viewingId();
+    if (!current) {
+      return;
+    }
+    const items = albumPhotos();
+    const index = items.findIndex((photo) => photo.id === current);
+    const next = index + delta;
+    if (index < 0 || next < 0 || next >= items.length) {
+      return;
+    }
+    viewingId.set(items[next].id);
+  }
+
+  function showEdgePhoto(edge: "first" | "last") {
+    if (!viewingId()) {
+      return;
+    }
+    const items = albumPhotos();
+    if (items.length === 0) {
+      return;
+    }
+    viewingId.set(edge === "first" ? items[0].id : items[items.length - 1].id);
+  }
+
+  function toggleViewer() {
+    if (viewingId()) {
+      closeViewer();
+      return;
+    }
+    if (mainArea() !== "photos") {
+      return;
+    }
+    const items = albumPhotos();
+    if (items.length === 0) {
+      return;
+    }
+    const focus = focusedId();
+    const target = focus && items.some((photo) => photo.id === focus) ? focus : items[0].id;
+    openAlbumPhoto(target);
+  }
+
+  async function connectProfile(id: string) {
+    if (isBusy()) {
+      return;
+    }
+    busy.set("connect");
+    connection.set({ kind: "connecting" });
+    notice.set("");
+    banner.set(null);
+    try {
+      const result = (await Wifi.connectProfile(id));
+      await applyConnectResult(result);
+    } catch (err) {
+      connection.set({ kind: "error", message: String(err) });
+    } finally {
+      busy.set(null);
+    }
+  }
+
   function photoIds() {
     return photos().map((photo) => photo.id);
   }
@@ -467,6 +596,8 @@ export function createAppModel() {
     importPhase,
     notice,
     settingsOpen,
+    showDevices,
+    showPhotos,
     settingsAnchor,
     wifiSettings,
     ssidDraft,
@@ -475,6 +606,10 @@ export function createAppModel() {
     focusedId,
     rangeAnchor,
     listing,
+    mainArea,
+    albumPhotos,
+    albumListing,
+    viewingId,
     thumbLoader,
     isBusy,
     loadSettings,
@@ -483,7 +618,17 @@ export function createAppModel() {
     resetCameraUrl,
     refreshList,
     connectCamera,
+    connectProfile,
     saveAndConnect,
+    goHome,
+    openDevices,
+    openPhotos,
+    loadAlbum,
+    openAlbumPhoto,
+    closeViewer,
+    showAdjacentPhoto,
+    showEdgePhoto,
+    toggleViewer,
     saveProfileEdits,
     removeProfile,
     toggleAutoSwitchBack,

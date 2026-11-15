@@ -106,7 +106,7 @@ HTTP Range 是否被相机支持，需在真机上验证。若不支持，续传
 
 约定：
 
-- 扫描范围默认是目标文件夹内的直接照片文件。第一版不再按日子目录分层。若用户后来在该文件夹里自建子文件夹，是否纳入扫描将在实现时决定，并在界面说明。
+- 扫描范围是目标文件夹内的直接照片文件。第一版不再按日子目录分层，也不进入子文件夹。原生 `Library.listPhotos` 接口为只读：不会在该文件夹中创建、改写、移动或删除文件。
 - 索引保存在 `data_dir()` 下的 SQLite，字段包括相对路径、文件名、扩展名、字节大小、可选校验和、拍摄时间（若能从 EXIF 或 `info` 得到）、星级（1 到 5，或未评分）、标记（已选、排除，或无标记）、导入来源。
 - 选择 SQLite 是因为筛选、排序和增量更新比单份 JSON 更容易保持一致，也便于以后加字段。
 - 当索引与目录不一致时，以磁盘为准：刷新会补入新文件、移除已不存在的路径，但不得删除磁盘上的原片。sidecar 若存在，刷新时应与索引对账。
@@ -257,16 +257,16 @@ Apple 与元数据：
 
 mixed 应用放在仓库根目录：
 
-- `App.tsx` 是 Native Shell 约定的 TSX 入口：它与 `nsh.json` 同级，只负责挂载应用。界面代码在 `ui/` 中。`ui/App.tsx` 负责组合外壳；`ui/components/` 存放视图；`ui/state/` 存放信号与流程；`ui/lib/` 存放缩略图加载器等辅助模块。应用采用固定深色和暖琥珀强调色，不放产品名大标题，也没有常驻侧栏。角落的圆形按钮只打开设置。照片以 `List` 的 `numColumns` 做成虚拟化缩略图网格。视觉 token 在 `ui/theme.ts`，文案在 `ui/copy.ts`，选择逻辑在 `ui/state/selection.ts`，界面图标在 `ui/assets/icons/`（Kubai Icons 0.9.0，MIT 许可，已固化；见 `ui/assets/icons/SOURCE.txt`）。设计说明见仓库根目录的 `DESIGN.zh-CN.md` 与 `PRODUCT.zh-CN.md`。
+- `App.tsx` 是 Native Shell 约定的 TSX 入口：它与 `nsh.json` 同级，只负责挂载应用。界面代码在 `ui/` 中。`ui/App.tsx` 负责组合外壳；`ui/components/` 存放视图；`ui/state/` 存放信号与流程；`ui/lib/` 存放缩略图加载器等辅助模块。应用采用固定深色和暖琥珀强调色，不放产品名大标题，也没有常驻侧栏。角落的圆形按钮只打开设置。照片以 `List` 的 `numColumns` 做成虚拟化缩略图网格。视觉 token 在 `ui/theme.ts`，文案在 `ui/copy.ts`，选择逻辑在 `ui/state/selection.ts`，界面图标在 `ui/assets/icons/`（Kubai Icons 0.9.0，MIT 许可，已固化的官方 color 变体，主按钮使用单色 on-accent 图形；见 `ui/assets/icons/SOURCE.txt`）。设计说明见仓库根目录的 `DESIGN.zh-CN.md` 与 `PRODUCT.zh-CN.md`。
 - `src/lib.rs` 向 TSX 导出 Rust 模块，说明符为 `ricoh-mac/native`：`Library`、`Camera` 与 `Wifi`。
-- `src/config.rs` 把资料库文件夹和相机源地址保存在 `data_dir()` 下的 `config.json` 中，先写临时文件再原子改名。
+- `src/config.rs` 把保存位置和相机源地址保存在 `data_dir()` 下的 `config.json` 中，先写临时文件再原子改名。
 - `src/camera.rs` 是只读 HTTP 客户端：`GET /v1/ping`、`GET /v1/props`、`GET /v1/photos`、原文件下载，以及可选的 `size=thumb`。不发送 POST 或 PUT。默认源地址是 `http://192.168.0.1`，可在界面中改为开发地址。
-- `src/importer.rs` 把文件写入同一个资料库文件夹，保留原始文件名，使用 `.partial` 临时文件，跳过名称与大小都相同的文件，并在同名冲突时报告且不覆盖。
+- `src/importer.rs` 把文件写入同一个保存位置，保留原始文件名，使用 `.partial` 临时文件，跳过名称与大小都相同的文件，并在同名冲突时报告且不覆盖。
 - `src/mock_camera.rs` 与 `src/bin/mock-camera.rs` 提供本地 HTTP 夹具，用于测试，以及在没有相机时调试界面。
 
 耗时的 HTTP 与文件操作在 `blocking()` 中执行。`data_dir()` 在异步模块函数中、在进入这些工作之前读取。选择文件夹使用 `pick_paths(OpenDialog::folders())`。
 
-测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态和进度摘要，不读取用户的真实资料库或配置。这些测试不能代替真机验证。
+测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态和进度摘要，不读取用户的真实保存位置或配置。这些测试不能代替真机验证。
 
 开发命令：
 
