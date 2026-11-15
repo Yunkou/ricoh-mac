@@ -3,7 +3,7 @@
 Companion requirements: [requirements.en.md](requirements.en.md)
 Chinese version: [tech-stack.zh-CN.md](tech-stack.zh-CN.md)
 
-The NSH line is **0.5.x**, matching the current stable release series. The exact 0.5.x patch will be pinned at the start of implementation, and the output of `nsh -V` will be recorded in this document.
+The NSH line is **0.5.x**, matching the current stable release series. Milestone 1 is pinned to **0.5.1**. The recorded `nsh -V` output is `nsh 0.5.1 (224d9a7)`.
 
 ---
 
@@ -30,7 +30,7 @@ Official documentation says `background` and `blocking` run work on the native t
 Implementation rules:
 
 - Run HTTP probes, listing, downloads, hashing, and file copies in `blocking` or an equivalent background task. Do not stall the engine thread.
-- Dispatch any ImageIO or AppKit call that truly needs the main thread with `run_on_main_thread`. Which APIs actually require that is to be verified during implementation. Version 1 does not switch networks automatically, so it does not need CoreWLAN in version 1.
+- Dispatch any ImageIO or AppKit call that truly needs the main thread with `run_on_main_thread`. Which APIs actually require that is to be verified during implementation. Automatic Wi-Fi switching in version 1 uses `/usr/sbin/networksetup` and `/sbin/route` on a background thread, not CoreWLAN on the main thread.
 - Snapshot `data_dir()` and other reactive environment values on the engine thread before entering `blocking`. Official standard-module notes say the app's own Rust runs with the process permissions, but some NSH environment APIs depend on the reactive runtime. The exact failure mode of a cross-thread misuse will be verified during implementation.
 
 ### 2.3 Data directory and settings
@@ -68,9 +68,13 @@ Version 1 must not call the community-documented `POST /v1/device/finish`, `POST
 
 ### 3.2 Version 1 connection (decided)
 
-**Decision:** The user joins the camera SSID in macOS System Settings, and the app only probes `192.168.0.1` (or a configurable address if a real camera uses another one). Version 1 does not need Location permission and does not switch the system network itself.
+**Decision:** Version 1 saves a camera profile on first connection and later switches the Mac’s Wi-Fi automatically. This supersedes the earlier decision that version 1 would only support a manual join. The camera HTTP origin remains `http://192.168.0.1` by default, and is still configurable for development or an unusual address.
 
-Automatic association is deferred to a later version. If it is built later, it should use [Core WLAN](https://developer.apple.com/documentation/corewlan). Apple DTS wrote that, from a stated system change onward, reading the SSID needs Location permission (`CWInterface` header comments; [forums thread 732431](https://developer.apple.com/forums/thread/732431?answerId=758114022)). The app must also include a location usage string in Info.plist and request authorization before the call; see [Requesting authorization to use location services](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services). How NSH sets `macos.infoPlist` keys is documented in [Packaging](https://nsh.dev/docs/packaging.md). The combination of CoreWLAN and the NSH runtime, and whether those calls must run on the main thread, should be verified in that later version.
+The chosen join mechanism is `/usr/sbin/networksetup -setairportnetwork`, with `/usr/sbin/networksetup -getairportnetwork` to read the current SSID when possible, and `/sbin/route -n get 192.168.0.1` to see whether that route leaves through a `utun` (or similar) interface. This is preferred over [Core WLAN](https://developer.apple.com/documentation/corewlan) `associateToNetwork:password:` as the primary path because association through CoreWLAN typically needs a scan first, and a scan is gated by Location Services on recent macOS. `networksetup` can join a known SSID and password without scanning. Switching back uses the same tool with the remembered previous SSID and no stored password for that network; it relies on the network already being in the macOS preferred list.
+
+Apple DTS wrote that, from a stated system change onward, reading the current SSID needs Location permission (`CWInterface` header comments; [forums thread 732431](https://developer.apple.com/forums/thread/732431?answerId=758114022)). `networksetup -getairportnetwork` is subject to the same restriction on macOS 14 and later. The app therefore declares `NSLocationUsageDescription` and `NSLocationWhenInUseUsageDescription` in `nsh.json` `macos.infoPlist`, which NSH copies into the packaged app’s Info.plist ([Packaging](https://nsh.dev/docs/packaging.md)). Location is used only to capture the current SSID during first-time profile setup. If permission is denied, the user types the SSID shown on the camera. The app does not request `com.apple.developer.*` entitlements or a Keychain access group, because those require a provisioning profile and are not available to a personal ad hoc signed app.
+
+Wi-Fi passwords are stored in the macOS Keychain as generic passwords (service `com.yunkou.ricoh-mac.camera-wifi`) through the `security-framework` crate, behind a `SecretStore` trait. Profile metadata is stored as JSON in the application data directory and never includes the password. Automated tests use an in-memory secret store and a fake Wi-Fi controller, and must not call `networksetup -setairportnetwork`. Setting `RICOH_MAC_NO_WIFI_SWITCH` also prevents the production controller from switching networks during development.
 
 Waking Wi-Fi over Bluetooth appears in community feasibility notes, and official Image Sync describes phone-side Bluetooth pairing. Version 1 does not treat that as an acceptance criterion.
 
@@ -244,3 +248,34 @@ Apple and metadata:
 - [Image I/O](https://developer.apple.com/documentation/imageio)
 - [Creating and Using Image Sources](https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/ImageIOGuide/imageio_source/ikpg_source.html)
 - [Adobe XMP xmp namespace](https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/)
+
+---
+
+## 12. Milestone 1 implementation notes
+
+The toolchain used for Milestone 1 is **NSH 0.5.1** (`nsh 0.5.1 (224d9a7)`), installed with the official `install.sh` and pinned to the 0.5.x stable line. `Cargo.toml` depends on `nsh-core` and `nsh-base` 0.5.1.
+
+The mixed app lives in the repository root:
+
+- `App.tsx` is the TSX UI. It uses a fixed dark appearance and a warm amber accent, with no product-name header and no persistent sidebar. A circular corner button opens settings only. Photographs are shown in a virtualized thumbnail grid through `List` `numColumns`. Visual tokens live in `theme.ts`, copy in `copy.ts`, and selection helpers in `selection.ts`. The design record is in `DESIGN.md` and `PRODUCT.md` at the repository root.
+- `src/lib.rs` exports two Rust modules to TSX as `ricoh-mac/native`: `Library` and `Camera`.
+- `src/config.rs` stores the library folder and camera base URL in `config.json` under `data_dir()`, written with a temporary file and an atomic rename.
+- `src/camera.rs` is the read-only HTTP client: `GET /v1/ping`, `GET /v1/props`, `GET /v1/photos`, original-file download, and optional `size=thumb`. It does not issue POST or PUT requests. The default origin is `http://192.168.0.1` and can be changed in the UI for development.
+- `src/importer.rs` writes into the single library folder, keeps original file names, uses a `.partial` temporary file, skips name-and-size matches, and reports same-name conflicts without overwriting.
+- `src/mock_camera.rs` and `src/bin/mock-camera.rs` provide a local HTTP fixture for tests and for UI work without a camera.
+
+Long-running HTTP and file work run inside `blocking()`. `data_dir()` is read in async module functions before that work starts. Folder picking uses `pick_paths(OpenDialog::folders())`.
+
+Tests: `nsh test` runs the Rust unit and fixture tests (ping, list, download, deduplication, partial-download recovery, camera offline) and headless UI tests. The UI tests replace `ricoh-mac/native` through `open` `modules`, and they cover first launch, automatic listing after a successful connection, selection, disabled import actions, and the progress summary. They do not read the user’s real library or configuration. Those tests are not hardware validation.
+
+Development commands:
+
+```sh
+nsh check
+nsh test
+nsh package --target macos
+nsh run --target macos
+cargo run --bin mock-camera
+```
+
+The mock server defaults to `http://127.0.0.1:8080`. Set that origin as the camera base URL in the app to exercise listing and import without joining camera Wi-Fi. Camera endpoints and JSON shapes remain to be validated on a real GR IIIx.

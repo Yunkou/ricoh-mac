@@ -43,7 +43,7 @@ Typical scenarios:
 - Automatic deletion, overwrite, or rewriting of files on the camera, or of pixel data in imported originals.
 - Retouching, full RAW develop-and-export, cloud sync, or social sharing.
 - Remote shutter, live view, or changing camera settings (version 1 does not need capture control).
-- Waking the camera over Bluetooth, or letting the app switch the Mac's Wi-Fi automatically. Automatic network switching belongs in a later version.
+- Waking the camera over Bluetooth.
 - Distributing installers, Developer ID signing, and notarization. Version 1 is for personal use only.
 
 ### 3.3 Safety boundary
@@ -58,16 +58,19 @@ Each item has a user story and acceptance criteria. Clauses that depend on the c
 
 ### 4.1 Connect to the camera over Wi-Fi
 
-**User story:** As a user, after I turn on the camera Wi-Fi and join the camera network from macOS System Settings, the app detects the camera and tells me whether the connection succeeded, failed, or is still unverified.
+**User story:** As a user, after I turn on the camera Wi-Fi, I can choose Connect Camera, join the saved camera network, probe the camera, and see whether the connection succeeded, failed, or still needs a profile.
 
-**Decision:** In version 1, the user joins the camera Wi-Fi manually. The app does not switch the system network. Automatic network switching comes in a later version.
+**Decision:** Version 1 saves a camera profile on first connection (model, serial, and firmware when available, plus the camera Wi-Fi SSID) and stores the Wi-Fi password in the macOS Keychain, never in a plaintext config file. Later, Connect Camera switches the Mac to that SSID, waits for `192.168.0.1`, then probes and loads photographs. The app remembers the previous network and, by default, switches back after import or when the user disconnects, and also offers a clear switch-back action in the interface. This supersedes the earlier decision that version 1 would only support joining the camera Wi-Fi by hand. If automatic switching fails, the app falls back to manual-join guidance.
 
 **Acceptance criteria:**
 
-- The app gives clear steps: turn on the camera wireless LAN, join the SSID shown on the camera from System Settings, and enter the password shown on the camera LCD (the official [Image Sync connection method](https://www.ricoh-imaging.co.jp/english/products/app/image-sync2/connect.html) says the password can be displayed on the camera LCD; the exact camera menu follows the [operating manual](https://www.ricoh-imaging.co.jp/english/support/man-pdf/gr-3x.pdf)).
-- Once the Mac has joined the camera network, the app probes reachability with read-only requests and shows success, failure, or timeout. It must not present an unverified state as connected.
-- Version 1 does not switch the system Wi-Fi by itself, and it does not require the official Image Sync app to be installed or paired first. Whether official-app or Bluetooth pairing is required is to be validated on hardware.
-- On failure, the app shows an understandable reason (not on the camera network, no response, timeout) and does not change camera state.
+- The app gives clear steps: turn on the camera wireless LAN. If no profile is saved yet, the user can enter the SSID and password shown on the camera LCD (the official [Image Sync connection method](https://www.ricoh-imaging.co.jp/english/products/app/image-sync2/connect.html) says the password can be displayed on the camera LCD; the exact camera menu follows the [operating manual](https://www.ricoh-imaging.co.jp/english/support/man-pdf/gr-3x.pdf)). If the Mac is already on the camera network, the app captures the current SSID when permission allows and asks only for the password.
+- After a profile is saved, Connect Camera switches to the saved SSID, waits for the camera at `192.168.0.1`, then probes reachability with read-only requests and shows success, failure, or timeout. It must not present an unverified state as connected.
+- The password is stored only in the macOS Keychain. Profile metadata is stored in the application data directory. The settings panel can edit or delete the current profile. The data model supports multiple profiles; the current interface focuses on one camera.
+- On failure, the app shows an understandable reason (wrong password, camera wireless LAN off, timeout, location permission denied, or failed to join) and does not change camera state. If automatic switching fails, it falls back to manual-join guidance.
+- After import, the app switches back to the previous network by default, and the interface also offers Switch Back. The user can turn off automatic switch-back.
+- If the route to `192.168.0.1` goes through a `utun` or similar tunnel interface (for example Clash Verge in TUN mode), the interface shows a clear hint.
+- The app does not require the official Image Sync app to be installed or paired first. Whether official-app or Bluetooth pairing is required is to be validated on hardware.
 
 Public sources (not an official SDK; to be validated on hardware): several independent write-ups say that a GR IIIx in Wi-Fi mode acts as an access point, that an HTTP service listens at `http://192.168.0.1/` on port 80, and that `GET /v1/ping` and `GET /v1/props` are used as read-only probes. Sources: the [secretsauce reverse-engineering note](https://notes.secretsauce.net/notes/2022/06/16_ricoh-gr-iiix-80211-reverse-engineering.html), [Namako's GR3x write-up](https://namako.tw/2024/05/11/gr3x-wireless-api/), the [CursedHardware community OpenAPI](https://github.com/CursedHardware/ricoh-wireless-protocol), and [snmkl/ricoh.app](https://github.com/snmkl/ricoh.app). Ricoh has not published an official HTTP SDK under these names.
 
@@ -159,7 +162,7 @@ Official documents confirm that the camera can record DNG, and can record RAW an
 
 ### 5.5 Dark appearance
 
-A fixed dark appearance is a carried-forward preference. It is not a locked acceptance criterion while the UI preferences in section 6 remain open.
+The interface uses a fixed dark appearance. This is a locked version 1 visual decision. The app does not follow the system’s light appearance.
 
 ### 5.6 Signing and distribution
 
@@ -169,9 +172,16 @@ A fixed dark appearance is a carried-forward preference. It is not a locked acce
 
 ## 6. UX principles
 
-Carried-forward UI preferences include: a fixed dark appearance for the whole app; substantial design work that follows the [Impeccable](https://impeccable.style/) method; no large product-name header in the UI; and no persistent sidebar, with navigation in a circular icon button that opens on click.
+The version 1 interface follows the [Impeccable](https://impeccable.style/) Operate mode and locks the following decisions:
 
-These preferences are expected to change in part. Which items will change, and what they will change to, is not yet specified. Until those details are specified, the preferences above are recorded under Open Questions and are not locked version 1 UI specifications.
+- The whole app uses a fixed dark appearance. The accent is warm amber, reserved for the primary action, selection, and focus.
+- Interface copy is concise Chinese.
+- There is no product-name header and no persistent sidebar.
+- The circular icon button is a corner settings entry only. It holds the library folder control and the advanced camera URL. It is not primary navigation.
+- Photographs are shown in a virtualized thumbnail grid. “Import selected” is the primary action. “Import all” is secondary.
+- “Not yet connected” is not shown as an error before a connection has been attempted. A successful probe loads the photograph list automatically. Import progress, skips, conflicts, and errors are distinct.
+
+Visual tokens and component rules are in [DESIGN.md](../DESIGN.md).
 
 ---
 
@@ -180,21 +190,19 @@ These preferences are expected to change in part. Which items will change, and w
 The following is an implementation sequence, not a dated schedule.
 
 1. **M0 Documentation:** Product requirements and technical design.
-2. **M1 App shell and local album:** Create the NSH 0.5.x mixed project, choose the target folder, and browse local thumbnails and large views. Visual design follows the UX decisions in section 6 once the open items are resolved.
-3. **M2 Connection and camera browsing:** Probe the camera after the user joins its Wi-Fi by hand, list photos, and show thumbnails.
-4. **M3 Import:** Copy selected photos into the single target folder, keep original file names, and support progress, deduplication, and resume.
-5. **M4 Culling:** 1 to 5 stars, picked and rejected flags, filters, and persistence in XMP sidecars and SQLite.
-6. **M5 RAW preview:** Embedded preview for local DNG. DNG in the camera list, and how version 1 meets the preview requirement if wireless transfer cannot deliver DNG, follow real-camera test results.
+2. **M1 Library, connection, listing, and import:** Choose and persist the library folder; save a camera network profile and later switch Wi-Fi automatically, then probe the camera; list photos; import selected or all files into that folder. Scope and acceptance criteria are in section 11. The interface follows the UX decisions in section 6.
+3. **M2 Local album browsing:** Browse thumbnails and large views of files already in the library folder, including use without the camera.
+4. **M3 Culling:** 1 to 5 stars, picked and rejected flags, filters, and persistence in XMP sidecars and SQLite.
+5. **M4 RAW preview:** Embedded preview for local DNG. DNG in the camera list, and how version 1 meets the preview requirement if wireless transfer cannot deliver DNG, follow real-camera test results.
 
-AI-assisted culling, automatic Wi-Fi switching, and Bluetooth wake go to later-version candidates.
+AI-assisted culling and Bluetooth wake go to later-version candidates.
 
 ---
 
 ## 8. Open questions
 
-1. UI preferences (fixed dark appearance, the Impeccable design method, no large product-name header, and the circular icon menu) are expected to change in part. Which items will change, and what they will change to, is not yet specified. These items are not locked version 1 specifications.
-2. What keyboard shortcuts should apply stars and flags?
-3. What public name, and what bundle id for personal use, should the app use?
+1. What keyboard shortcuts should apply stars and flags? Milestone 1 already defines the import and selection shortcuts: Command-A selects all, Escape clears the selection or closes settings, Command-Return imports the selection, and Command-R refreshes the list.
+2. What public name, and what bundle id for personal use, should the app use? The current development identifier is `com.yunkou.ricoh-mac`. It is not the final identity.
 
 ---
 
@@ -233,3 +241,29 @@ Design and platform:
 
 - [Impeccable](https://impeccable.style/)
 - [Native Shell](https://nsh.dev/)
+
+---
+
+## 11. Milestone 1
+
+Milestone 1 covers the first working path from a local library folder to a read-only camera probe, a photo list, and an import into that folder. Camera HTTP behavior is documented from community sources and is to be validated on hardware.
+
+### 11.1 Scope
+
+1. On first launch, the user chooses a local library folder. The path is saved in the application data directory and can be changed later.
+2. On first connection, the app saves a camera profile (model, serial, and firmware when available, plus the camera Wi-Fi SSID) and stores the password in the macOS Keychain. Later, Connect Camera switches to the saved SSID, waits for `192.168.0.1`, then probes the camera with read-only requests (`GET /v1/ping` and `GET /v1/props`) and shows connected or not connected status, plus model information when it is available. If automatic switching fails, the app falls back to manual-join guidance. The app recommends Ethernet or iPhone USB tethering if the Mac still needs internet while it is on the camera network. After import, it switches back to the previous network by default, and the interface also offers a clear switch-back action. If the route to the camera goes through a `utun` tunnel, the interface shows a hint. The camera HTTP origin is configurable for development; the default is `http://192.168.0.1`.
+3. The app lists photos on the camera with `GET /v1/photos`, and requests thumbnails with `size=thumb` when that parameter is available.
+4. The user can download selected photos or all listed photos into the single library folder. Original file names are kept. Each file is written to a temporary file in the same folder, checked against the expected size when it is known, then renamed into place. A file that is already present with the same name and size is skipped. Progress and per-file errors are shown. The app does not delete, rename, or rewrite files on the camera, and does not overwrite a complete local file whose size differs (that case is reported as a conflict).
+
+Ratings, flags, RAW develop, and distribution are outside Milestone 1.
+
+### 11.2 Acceptance criteria
+
+- If no library folder is saved, the UI asks the user to choose one before import. After a folder is chosen, the path is shown and can be changed.
+- A probe reports success only after a successful read-only ping. Failure and timeout are shown as not connected, not as connected. Model and firmware are shown when `GET /v1/props` provides them.
+- The UI includes first-time profile capture, later automatic switching, switch-back after import, and manual-join guidance as a fallback, plus the Ethernet or USB-tethering recommendation. The password does not appear in the config file. If the route to the camera goes through a tunnel interface, the interface shows a hint.
+- A photo list is shown after a successful `GET /v1/photos`. An empty, failed, or unparsable list is explained and is not presented as a healthy empty camera state.
+- Import keeps original names in the chosen folder, uses a `.partial` temporary file, skips name-and-size matches, reports same-name size conflicts without overwriting, and continues after a per-file error.
+- When no library folder is chosen, the first screen only asks the user to choose a folder. It does not present an unattempted connection as an error. A successful probe loads photographs automatically and shows them in a virtualized thumbnail grid.
+- “Import selected” is the primary action, and “Import all” is secondary. Actions that would start another import are disabled while an import is running. The progress bar shows the current file name. The completion summary distinguishes imported, skipped, conflict, and error counts.
+- Headless tests cover ping, listing, download, deduplication, partial-download recovery, and a camera-offline case against a local mock HTTP fixture. Interface tests cover the first-run flow, selection, disabled import actions, and the progress summary against isolated module stand-ins. These tests are not a substitute for hardware validation.

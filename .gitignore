@@ -1,0 +1,9 @@
+.nsh/
+target/
+.DS_Store
+*.log
+
+# Impeccable and editor tooling (darwin-arm64 binaries, 20 MB+ each).
+# Reinstall locally with `npx impeccable install` when needed. Do not commit.
+.cursor/
+.grok/

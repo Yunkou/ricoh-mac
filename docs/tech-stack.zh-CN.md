@@ -3,7 +3,7 @@
 配套需求：[requirements.zh-CN.md](requirements.zh-CN.md)
 英文版：[tech-stack.en.md](tech-stack.en.md)
 
-NSH 版本约定为 **0.5.x**（与当前稳定发行说明一致）。实现开始时将锁定当时的 0.5.x 补丁版本，并在本文中记录确切的 `nsh -V` 输出。
+NSH 版本约定为 **0.5.x**（与当前稳定发行说明一致）。第一里程碑锁定为 **0.5.1**。已记录的 `nsh -V` 输出为 `nsh 0.5.1 (224d9a7)`。
 
 ---
 
@@ -30,7 +30,7 @@ NSH 版本约定为 **0.5.x**（与当前稳定发行说明一致）。实现开
 实现约定：
 
 - HTTP 探测、列表、下载、哈希、文件系统复制放在 `blocking` 或等价的后台任务中，不要堵引擎线程。
-- 任何必须在主线程执行的 ImageIO 或 AppKit 调用，经 `run_on_main_thread` 调度。哪些 API 真正要求主线程，将在实现时验证。第一版不做自动切网，因此不必在第一版接入 CoreWLAN。
+- 任何必须在主线程执行的 ImageIO 或 AppKit 调用，经 `run_on_main_thread` 调度。哪些 API 真正要求主线程，将在实现时验证。第一版的自动切网在后台线程调用 `/usr/sbin/networksetup` 和 `/sbin/route`，不在主线程调用 CoreWLAN。
 - 进入 `blocking` 之前，在引擎线程快照 `data_dir()` 或其他反应式环境值。官方标准模块文档指出，应用自己的 Rust 代码以进程权限运行，但部分 NSH 环境 API 依赖反应式运行时；跨线程误用时的具体失败模式将在实现时核对。
 
 ### 2.3 数据目录与配置
@@ -68,9 +68,13 @@ NSH 0.5 发行说明写明 `data_dir()` 提供应用自己的数据目录；TSX 
 
 ### 3.2 第一版连接方式（已决定）
 
-**已决定：** 用户用 macOS 系统设置手动加入相机 SSID，应用只探测 `192.168.0.1`（若真机使用其他地址，再改成可配置）。第一版不必申请定位权限，也不驱动系统切网。
+**已决定：** 第一版在首次连接时保存相机配置，之后自动切换 Mac 的 Wi-Fi。这取代了此前「第一版只支持手动加入相机网络」的决定。相机 HTTP 源地址默认仍是 `http://192.168.0.1`，开发或地址特殊时仍可配置。
 
-自动切网放到后续版本。若以后要实现，应使用 [Core WLAN](https://developer.apple.com/documentation/corewlan)。Apple DTS 在开发者论坛写明：从特定系统版本起，读取 SSID 需要定位权限（`CWInterface` 头文件注释；[forums thread 732431](https://developer.apple.com/forums/thread/732431?answerId=758114022)）。应用还需在 Info.plist 中提供定位用途说明，并在调用前请求授权，见 [Requesting authorization to use location services](https://developer.apple.com/documentation/corelocation/requesting-authorization-to-use-location-services)。NSH 如何声明 `macos.infoPlist` 键见 [Packaging](https://nsh.dev/docs/packaging.md)。CoreWLAN 与 NSH 运行时的组合、以及是否必须在主线程调用，待后续版本验证。
+加入网络的首选机制是 `/usr/sbin/networksetup -setairportnetwork`；在权限允许时用 `/usr/sbin/networksetup -getairportnetwork` 读取当前 SSID；用 `/sbin/route -n get 192.168.0.1` 判断该路由是否经过 `utun`（或类似）接口。这比把 [Core WLAN](https://developer.apple.com/documentation/corewlan) 的 `associateToNetwork:password:` 作为主路径更可靠，因为 CoreWLAN 加入网络通常要先扫描，而在较新的 macOS 上扫描受定位服务限制。`networksetup` 可以用已知的 SSID 和密码直接加入，不必先扫描。切回原来的网络使用同一工具和记住的 SSID，不为原网络保存密码，而是依赖该网络已在 macOS 的偏好网络列表中。
+
+Apple DTS 在开发者论坛写明：从特定系统版本起，读取当前 SSID 需要定位权限（`CWInterface` 头文件注释；[forums thread 732431](https://developer.apple.com/forums/thread/732431?answerId=758114022)）。在 macOS 14 及以后，`networksetup -getairportnetwork` 也受同一限制。因此应用在 `nsh.json` 的 `macos.infoPlist` 中声明 `NSLocationUsageDescription` 和 `NSLocationWhenInUseUsageDescription`，由 NSH 写入打包后的 Info.plist（见 [Packaging](https://nsh.dev/docs/packaging.md)）。定位权限只用于首次保存配置时读取当前 SSID。若用户拒绝授权，仍可手动输入相机屏幕上的网络名称。应用不申请 `com.apple.developer.*` 权限或钥匙串访问组，因为这些需要描述文件，个人 ad hoc 签名应用无法使用。
+
+Wi-Fi 密码通过 `security-framework` 以通用密码写入 macOS 钥匙串（服务名 `com.yunkou.ricoh-mac.camera-wifi`），并抽象为 `SecretStore`。配置元数据以 JSON 保存在应用数据目录，文件中不含密码。自动化测试使用内存密码库和伪造的 Wi-Fi 控制器，不得调用 `networksetup -setairportnetwork`。开发时设置 `RICOH_MAC_NO_WIFI_SWITCH` 也可阻止生产控制器切换网络。
 
 蓝牙唤醒 Wi-Fi 出现在社区可行性讨论中，官方 Image Sync 也描述了手机端蓝牙配对。第一版不把它列为验收项。
 
@@ -244,3 +248,34 @@ Apple 与元数据：
 - [Image I/O](https://developer.apple.com/documentation/imageio)
 - [Creating and Using Image Sources](https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/ImageIOGuide/imageio_source/ikpg_source.html)
 - [Adobe XMP xmp namespace](https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/)
+
+---
+
+## 12. 第一里程碑实现说明
+
+第一里程碑使用的工具链是 **NSH 0.5.1**（`nsh 0.5.1 (224d9a7)`），通过官方 `install.sh` 安装，并锁定在 0.5.x 稳定系列。`Cargo.toml` 依赖 `nsh-core` 与 `nsh-base` 0.5.1。
+
+mixed 应用放在仓库根目录：
+
+- `App.tsx` 是 TSX 界面。采用固定深色和暖琥珀强调色，不放产品名大标题，也没有常驻侧栏。角落的圆形按钮只打开设置。照片以 `List` 的 `numColumns` 做成虚拟化缩略图网格。视觉 token 在 `theme.ts`，文案在 `copy.ts`，选择逻辑在 `selection.ts`。设计说明见仓库根目录的 `DESIGN.zh-CN.md` 与 `PRODUCT.zh-CN.md`。
+- `src/lib.rs` 向 TSX 导出两个 Rust 模块，说明符为 `ricoh-mac/native`：`Library` 与 `Camera`。
+- `src/config.rs` 把资料库文件夹和相机源地址保存在 `data_dir()` 下的 `config.json` 中，先写临时文件再原子改名。
+- `src/camera.rs` 是只读 HTTP 客户端：`GET /v1/ping`、`GET /v1/props`、`GET /v1/photos`、原文件下载，以及可选的 `size=thumb`。不发送 POST 或 PUT。默认源地址是 `http://192.168.0.1`，可在界面中改为开发地址。
+- `src/importer.rs` 把文件写入同一个资料库文件夹，保留原始文件名，使用 `.partial` 临时文件，跳过名称与大小都相同的文件，并在同名冲突时报告且不覆盖。
+- `src/mock_camera.rs` 与 `src/bin/mock-camera.rs` 提供本地 HTTP 夹具，用于测试，以及在没有相机时调试界面。
+
+耗时的 HTTP 与文件操作在 `blocking()` 中执行。`data_dir()` 在异步模块函数中、在进入这些工作之前读取。选择文件夹使用 `pick_paths(OpenDialog::folders())`。
+
+测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态和进度摘要，不读取用户的真实资料库或配置。这些测试不能代替真机验证。
+
+开发命令：
+
+```sh
+nsh check
+nsh test
+nsh package --target macos
+nsh run --target macos
+cargo run --bin mock-camera
+```
+
+模拟服务器默认地址是 `http://127.0.0.1:8080`。在应用中把相机源地址设为该地址，即可在不加入相机 Wi-Fi 的情况下练习列表和导入。相机接口与 JSON 形状仍需在理光 GR IIIx 真机上验证。

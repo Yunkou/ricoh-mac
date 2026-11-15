@@ -1,0 +1,14 @@
+{
+  "name": "ricoh-mac",
+  "id": "com.yunkou.ricoh-mac",
+  "version": "0.1.0",
+  "build": 1,
+  "rust": ".",
+  "appearance": "dark",
+  "macos": {
+    "infoPlist": {
+      "NSLocationUsageDescription": "Ricoh Mac 需要定位权限才能读取当前 Wi-Fi 名称，便于在首次连接时自动保存相机网络。应用不会使用或记录你的位置。若你拒绝授权，仍可手动输入相机屏幕上显示的网络名称。",
+      "NSLocationWhenInUseUsageDescription": "Ricoh Mac 需要定位权限才能读取当前 Wi-Fi 名称，便于在首次连接时自动保存相机网络。应用不会使用或记录你的位置。若你拒绝授权，仍可手动输入相机屏幕上显示的网络名称。"
+    }
+  }
+}
