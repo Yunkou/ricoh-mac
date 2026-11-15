@@ -1,9 +1,16 @@
-//! A small, read-only parser for Ricoh MakerNote fields used by GR III / GR IIIx.
+//! A small, read-only parser for GR III / GR IIIx photographer-panel fields.
+//!
+//! Real GR IIIx JPEG and DNG files store these values in a Pentax-layout
+//! MakerNote (`RICOH\0` + endian marker + IFD count, no TIFF magic 42). The
+//! older Ricoh tag IDs (0x10xx) are still recognized for synthetic fixtures
+//! and any file that uses that layout. The parser does not read serial
+//! numbers, GPS, or other personal fields.
 
 use super::format::{
-    crop_mode_key, focus_mode_key, image_control_key, on_off_key, ricoh_white_balance_key,
+    crop_mode_key, focus_mode_key, image_control_key, on_off_key, pentax_focus_mode_key,
+    pentax_image_tone_key, pentax_white_balance_key, ricoh_white_balance_key,
 };
-use super::tiff::{Endian, read_ifd, u16_at, u32_at};
+use super::tiff::{Endian, read_ifd, tiff_header, u16_at, u32_at, walk_ifds};
 
 const TAG_EXPOSURE_PROGRAM: u16 = 0x1001;
 const TAG_WHITE_BALANCE: u16 = 0x1003;
@@ -13,6 +20,16 @@ const TAG_IMAGE_EFFECTS: u16 = 0x1010;
 const TAG_CROP_MODE: u16 = 0x1018;
 const TAG_ND_FILTER: u16 = 0x1019;
 const TAG_COLOR_TEMP_KELVIN: u16 = 0x1307;
+
+/// Pentax-layout tags used by real GR IIIx JPEG and DNG MakerNotes.
+/// IDs and enumerations follow ExifTool's public Pentax tag documentation.
+const PENTAX_TAG_FOCUS_MODE: u16 = 0x000D;
+const PENTAX_TAG_WHITE_BALANCE: u16 = 0x0019;
+const PENTAX_TAG_IMAGE_TONE: u16 = 0x004F;
+const PENTAX_TAG_COLOR_TEMPERATURE: u16 = 0x0050;
+const PENTAX_TAG_ND_FILTER: u16 = 0x0088;
+
+const TAG_DNG_PRIVATE_DATA: u16 = 0xC634;
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RicohNotes {
@@ -48,13 +65,45 @@ pub fn parse(
             TAG_IMAGE_EFFECTS => notes.image_control = image_control_key(value as u16),
             TAG_CROP_MODE => notes.crop_mode = crop_mode_key(model, value as u16, equiv_35mm),
             TAG_ND_FILTER => notes.nd_filter = on_off_key(value as u16),
-            TAG_COLOR_TEMP_KELVIN if (1000..=20_000).contains(&value) => {
+            TAG_COLOR_TEMP_KELVIN | PENTAX_TAG_COLOR_TEMPERATURE
+                if (1000..=20_000).contains(&value) =>
+            {
                 notes.color_temperature = Some(value);
             }
+            PENTAX_TAG_FOCUS_MODE => notes.focus_mode = pentax_focus_mode_key(value as u16),
+            PENTAX_TAG_WHITE_BALANCE => {
+                notes.white_balance = pentax_white_balance_key(value as u16)
+            }
+            PENTAX_TAG_IMAGE_TONE => notes.image_control = pentax_image_tone_key(value as u16),
+            PENTAX_TAG_ND_FILTER => notes.nd_filter = on_off_key(value as u16),
             _ => {}
         }
     }
     Some(notes)
+}
+
+/// Reads DNG tag 0xC634 (`DNGPrivateData`), where GR IIIx DNG files store
+/// MakerNotes. kamadak-exif does not expose this tag.
+pub fn dng_private_data(file_bytes: &[u8]) -> Option<&[u8]> {
+    let (endian, ifd0) = tiff_header(file_bytes)?;
+    for (_offset, entries) in walk_ifds(file_bytes, ifd0, endian) {
+        for (entry, entry_offset) in entries {
+            if entry.tag != TAG_DNG_PRIVATE_DATA {
+                continue;
+            }
+            let len = entry.byte_len()? as usize;
+            if len == 0 {
+                return None;
+            }
+            let start = if len <= 4 {
+                entry_offset.checked_add(8)?
+            } else {
+                entry.value_or_offset as usize
+            };
+            return file_bytes.get(start..start.checked_add(len)?);
+        }
+    }
+    None
 }
 
 fn locate_ifd(bytes: &[u8], exif_little_endian: bool) -> Option<(&[u8], usize, Endian)> {
@@ -64,15 +113,19 @@ fn locate_ifd(bytes: &[u8], exif_little_endian: bool) -> Option<(&[u8], usize, E
     }
     let rest = bytes.get(start..)?;
     if let Some(endian) = Endian::from_header(rest) {
-        let magic = u16_at(rest, 2, endian)?;
-        if magic != 42 {
-            return None;
+        let after_endian = u16_at(rest, 2, endian)?;
+        if after_endian == 42 {
+            let ifd = u32_at(rest, 4, endian)? as usize;
+            if ifd >= rest.len() {
+                return None;
+            }
+            return Some((rest, ifd, endian));
         }
-        let ifd = u32_at(rest, 4, endian)? as usize;
-        if ifd >= rest.len() {
-            return None;
+        // Real GR IIIx notes use `RICOH\0` + `II`/`MM` + the IFD entry count.
+        // There is no TIFF magic 42 and no 4-byte IFD offset.
+        if compact_ifd_header(rest, after_endian) {
+            return Some((rest, 2, endian));
         }
-        return Some((rest, ifd, endian));
     }
     let endian = if exif_little_endian {
         Endian::LITTLE
@@ -84,6 +137,20 @@ fn locate_ifd(bytes: &[u8], exif_little_endian: bool) -> Option<(&[u8], usize, E
     } else {
         None
     }
+}
+
+fn compact_ifd_header(rest: &[u8], count: u16) -> bool {
+    if count == 0 || count as usize > 256 {
+        return false;
+    }
+    let Some(needed) = 12usize
+        .checked_mul(count as usize)
+        .and_then(|entries| 2usize.checked_add(entries))
+        .and_then(|value| value.checked_add(4))
+    else {
+        return false;
+    };
+    rest.len() >= needed
 }
 
 fn skip_ricoh_prefix(bytes: &[u8]) -> Option<usize> {
@@ -120,6 +187,48 @@ pub fn test_payload(tags: &[(u16, u16)]) -> Vec<u8> {
     payload
 }
 
+/// Builds a compact `RICOH\0` + `II` + IFD payload, as used by real GR IIIx files.
+#[cfg(test)]
+pub fn test_payload_ricoh_pentax(entries: &[IfdValue]) -> Vec<u8> {
+    let mut payload = b"RICOH\0II".to_vec();
+    payload.extend_from_slice(&(entries.len() as u16).to_le_bytes());
+    for entry in entries {
+        payload.extend_from_slice(&entry.bytes());
+    }
+    payload.extend_from_slice(&0u32.to_le_bytes());
+    payload
+}
+
+#[cfg(test)]
+#[derive(Clone, Copy)]
+pub enum IfdValue {
+    Short(u16, u16),
+    Bytes(u16, u8, u8),
+}
+
+#[cfg(test)]
+impl IfdValue {
+    fn bytes(self) -> [u8; 12] {
+        let mut out = [0u8; 12];
+        match self {
+            Self::Short(tag, value) => {
+                out[0..2].copy_from_slice(&tag.to_le_bytes());
+                out[2..4].copy_from_slice(&3u16.to_le_bytes());
+                out[4..8].copy_from_slice(&1u32.to_le_bytes());
+                out[8..10].copy_from_slice(&value.to_le_bytes());
+            }
+            Self::Bytes(tag, a, b) => {
+                out[0..2].copy_from_slice(&tag.to_le_bytes());
+                out[2..4].copy_from_slice(&1u16.to_le_bytes());
+                out[4..8].copy_from_slice(&2u32.to_le_bytes());
+                out[8] = a;
+                out[9] = b;
+            }
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -145,6 +254,45 @@ mod tests {
         assert_eq!(notes.white_balance, Some("kelvin"));
         assert_eq!(notes.color_temperature, Some(5200));
         assert_eq!(notes.exposure_program, Some(3));
+    }
+
+    #[test]
+    fn reads_real_iiix_compact_pentax_layout() {
+        // Values observed on public GR IIIx samples, using ExifTool's Pentax
+        // enumerations: ImageTone 258 = Monotone, FocusMode 6 = Auto-area,
+        // WhiteBalance 14 = Multi Auto, NeutralDensityFilter 0 2 = Off (Auto).
+        let payload = test_payload_ricoh_pentax(&[
+            IfdValue::Short(PENTAX_TAG_FOCUS_MODE, 6),
+            IfdValue::Short(PENTAX_TAG_WHITE_BALANCE, 14),
+            IfdValue::Short(PENTAX_TAG_IMAGE_TONE, 258),
+            IfdValue::Short(PENTAX_TAG_COLOR_TEMPERATURE, 0),
+            IfdValue::Bytes(PENTAX_TAG_ND_FILTER, 0, 2),
+        ]);
+        let notes = parse(&payload, true, Some("RICOH GR IIIx"), Some(40)).expect("notes");
+        assert_eq!(notes.focus_mode, Some("auto_area"));
+        assert_eq!(notes.white_balance, Some("multi_auto"));
+        assert_eq!(notes.image_control, Some("monotone"));
+        assert_eq!(notes.nd_filter, Some("off"));
+        assert_eq!(notes.color_temperature, None);
+        assert_eq!(notes.full_press_snap, None);
+        assert_eq!(notes.crop_mode, None);
+    }
+
+    #[test]
+    fn compact_layout_reads_manual_standard_and_kelvin() {
+        let payload = test_payload_ricoh_pentax(&[
+            IfdValue::Short(PENTAX_TAG_FOCUS_MODE, 3),
+            IfdValue::Short(PENTAX_TAG_WHITE_BALANCE, 17),
+            IfdValue::Short(PENTAX_TAG_IMAGE_TONE, 256),
+            IfdValue::Short(PENTAX_TAG_COLOR_TEMPERATURE, 5200),
+            IfdValue::Bytes(PENTAX_TAG_ND_FILTER, 1, 1),
+        ]);
+        let notes = parse(&payload, true, Some("RICOH GR IIIx"), Some(40)).expect("notes");
+        assert_eq!(notes.focus_mode, Some("manual"));
+        assert_eq!(notes.white_balance, Some("kelvin"));
+        assert_eq!(notes.image_control, Some("standard"));
+        assert_eq!(notes.nd_filter, Some("on"));
+        assert_eq!(notes.color_temperature, Some(5200));
     }
 
     #[test]

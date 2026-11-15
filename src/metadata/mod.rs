@@ -20,7 +20,7 @@ use crate::error::AppError;
 use format::{
     aspect_ratio, color_space_key, dms_to_degrees, exposure_mode_key, format_aperture, format_ev,
     format_focal_35mm, format_focal_mm, format_gps, format_iso, format_kelvin, format_shutter,
-    format_taken_at, metering_mode_key,
+    format_taken_at, iiix_crop_from_35mm, is_gr_iiix, metering_mode_key,
 };
 
 /// Photographer-facing information for one photograph.
@@ -176,7 +176,7 @@ pub fn inspect_photo(
         histogram: None,
     };
     if let Some(exif) = exif.as_ref() {
-        fill_from_exif(&mut details, exif);
+        fill_from_exif(&mut details, exif, &bytes);
     }
 
     if format == "jpeg" {
@@ -238,7 +238,7 @@ fn to_photo_histogram(histogram: histogram::Histogram, source: &str) -> PhotoHis
     }
 }
 
-fn fill_from_exif(details: &mut PhotoDetails, exif: &Exif) {
+fn fill_from_exif(details: &mut PhotoDetails, exif: &Exif, file_bytes: &[u8]) {
     details.camera_make = ascii_field(exif, Tag::Make);
     details.camera_model = ascii_field(exif, Tag::Model);
     details.aperture = rational_field(exif, Tag::FNumber).and_then(format_aperture);
@@ -268,7 +268,7 @@ fn fill_from_exif(details: &mut PhotoDetails, exif: &Exif) {
         .map(f64::from);
     details.lens = ascii_field(exif, Tag::LensModel).or_else(|| infer_lens(details, exif));
     details.gps = gps_field(exif);
-    if let Some(notes) = makernote_notes(exif, details.camera_model.as_deref(), equiv) {
+    if let Some(notes) = makernote_notes(exif, details.camera_model.as_deref(), equiv, file_bytes) {
         if let Some(mode) = notes
             .exposure_program
             .and_then(|value| exposure_mode_key(value, true))
@@ -286,6 +286,9 @@ fn fill_from_exif(details: &mut PhotoDetails, exif: &Exif) {
         if let Some(kelvin) = notes.color_temperature {
             details.color_temperature = format_kelvin(kelvin);
         }
+    }
+    if details.crop_mode.is_none() && is_gr_iiix(details.camera_model.as_deref()) {
+        details.crop_mode = iiix_crop_from_35mm(equiv).map(str::to_string);
     }
     if details.white_balance.is_none() {
         details.white_balance = uint_field(exif, Tag::WhiteBalance).and_then(|value| match value {
@@ -322,12 +325,13 @@ fn makernote_notes(
     exif: &Exif,
     model: Option<&str>,
     equiv_35mm: Option<u32>,
+    file_bytes: &[u8],
 ) -> Option<makernote::RicohNotes> {
-    let field = field(exif, Tag::MakerNote)?;
-    let bytes = match &field.value {
-        Value::Undefined(bytes, _) | Value::Byte(bytes) => bytes.as_slice(),
-        _ => return None,
-    };
+    let from_exif = field(exif, Tag::MakerNote).and_then(|field| match &field.value {
+        Value::Undefined(bytes, _) | Value::Byte(bytes) => Some(bytes.as_slice()),
+        _ => None,
+    });
+    let bytes = from_exif.or_else(|| makernote::dng_private_data(file_bytes))?;
     makernote::parse(bytes, exif.little_endian(), model, equiv_35mm)
 }
 
@@ -441,7 +445,7 @@ pub fn is_inside_library(library: &Path, path: &Path) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{inspect_photo, load_library_preview};
-    use crate::metadata::makernote::test_payload;
+    use crate::metadata::makernote::{IfdValue, test_payload, test_payload_ricoh_pentax};
     use crate::metadata::preview::test_dng_with_preview;
     use image::{ImageFormat, Rgb, RgbImage};
     use std::fs;
@@ -560,6 +564,16 @@ mod tests {
     }
 
     fn sample_exif_tiff(model: &str, maker_note: &[u8], with_gps: bool) -> Vec<u8> {
+        sample_exif_container(model, maker_note, &[], 71, with_gps)
+    }
+
+    fn sample_exif_container(
+        model: &str,
+        maker_note: &[u8],
+        dng_private: &[u8],
+        equiv_35mm: u16,
+        with_gps: bool,
+    ) -> Vec<u8> {
         // Layout is assembled in two passes so offsets are known.
         let make = b"RICOH\0";
         let model_bytes = {
@@ -576,9 +590,9 @@ mod tests {
         // We'll put IFD0 at 8, then data blocks, then Exif IFD, then GPS IFD.
         // Use a simpler approach: collect extra blobs and write entries with
         // a running offset after the IFDs.
-        let ifd0_tags_without_gps = 3u16; // Make, Model, ExifIFD
+        let ifd0_tags_without_gps = 3u16 + if dng_private.is_empty() { 0 } else { 1 }; // Make, Model, ExifIFD, optional DNGPrivateData
         let ifd0_count = if with_gps {
-            4u16
+            ifd0_tags_without_gps + 1
         } else {
             ifd0_tags_without_gps
         };
@@ -610,6 +624,10 @@ mod tests {
         let note_off = offset;
         if !maker_note.is_empty() {
             offset += maker_note.len() as u32;
+        }
+        let private_off = offset;
+        if !dng_private.is_empty() {
+            offset += dng_private.len() as u32;
         }
 
         let (gps_start, lat_off, lon_off, lat_ref_off, lon_ref_off, end_after_gps) = if with_gps {
@@ -645,6 +663,13 @@ mod tests {
         tiff.extend(ascii_entry(0x010F, make_off, make));
         tiff.extend(ascii_entry(0x0110, model_off, &model_bytes));
         tiff.extend(long_entry(0x8769, exif_start));
+        if !dng_private.is_empty() {
+            tiff.extend(undefined_entry(
+                0xC634,
+                private_off,
+                dng_private.len() as u32,
+            ));
+        }
         if let Some(start) = gps_start {
             tiff.extend(long_entry(0x8825, start));
         }
@@ -668,7 +693,7 @@ mod tests {
         tiff.extend(short_entry(0xA001, 1)); // sRGB
         tiff.extend(long_entry(0xA002, 6000));
         tiff.extend(long_entry(0xA003, 4000));
-        tiff.extend(short_entry(0xA405, 71)); // 35mm equiv
+        tiff.extend(short_entry(0xA405, equiv_35mm)); // 35mm equiv
         tiff.extend_from_slice(&0u32.to_le_bytes());
         tiff.extend_from_slice(datetime);
         tiff.extend_from_slice(&encode_rational(28, 10)); // F2.8
@@ -677,6 +702,9 @@ mod tests {
         tiff.extend_from_slice(&encode_rational(183, 10)); // 18.3 mm
         if !maker_note.is_empty() {
             tiff.extend_from_slice(maker_note);
+        }
+        if !dng_private.is_empty() {
+            tiff.extend_from_slice(dng_private);
         }
         if let (Some(start), Some(lat_off), Some(lon_off), Some(lat_ref_off), Some(lon_ref_off)) =
             (gps_start, lat_off, lon_off, lat_ref_off, lon_ref_off)
@@ -753,6 +781,57 @@ mod tests {
         assert_eq!(details.histogram.as_ref().unwrap().source, "original");
     }
 
+    fn compact_pentax_notes() -> Vec<u8> {
+        test_payload_ricoh_pentax(&[
+            IfdValue::Short(0x000D, 6),
+            IfdValue::Short(0x0019, 14),
+            IfdValue::Short(0x004F, 258),
+            IfdValue::Short(0x0050, 0),
+            IfdValue::Bytes(0x0088, 0, 2),
+        ])
+    }
+
+    #[test]
+    fn reads_compact_pentax_notes_from_a_jpeg() {
+        let jpeg = solid_jpeg(20, 40, 80, 16, 16);
+        let tiff = sample_exif_container("RICOH GR IIIx", &compact_pentax_notes(), &[], 40, false);
+        let file = jpeg_with_exif(&jpeg, &tiff);
+        let dir = unique_dir("jpeg-pentax");
+        let path = dir.join("R0001005.JPG");
+        fs::write(&path, &file).unwrap();
+        let before = snapshot(&path);
+        let details = inspect_photo(&path, None).unwrap();
+        assert_eq!(snapshot(&path), before);
+        assert_eq!(details.camera_model.as_deref(), Some("RICOH GR IIIx"));
+        assert_eq!(details.image_control.as_deref(), Some("monotone"));
+        assert_eq!(details.focus_mode.as_deref(), Some("auto_area"));
+        assert_eq!(details.white_balance.as_deref(), Some("multi_auto"));
+        assert_eq!(details.nd_filter.as_deref(), Some("off"));
+        assert_eq!(details.full_press_snap, None);
+        assert_eq!(details.color_temperature, None);
+        assert_eq!(details.crop_mode.as_deref(), Some("off"));
+        assert_eq!(details.focal_length_35mm.as_deref(), Some("40 mm"));
+    }
+
+    #[test]
+    fn reads_compact_pentax_notes_from_dng_private_data() {
+        let tiff = sample_exif_container("RICOH GR IIIx", &[], &compact_pentax_notes(), 40, false);
+        let dir = unique_dir("dng-private");
+        let path = dir.join("R0001005.DNG");
+        fs::write(&path, &tiff).unwrap();
+        let before = snapshot(&path);
+        let details = inspect_photo(&path, Some(&dir.join("cache"))).unwrap();
+        assert_eq!(snapshot(&path), before);
+        assert_eq!(details.format, "dng");
+        assert_eq!(details.camera_model.as_deref(), Some("RICOH GR IIIx"));
+        assert_eq!(details.image_control.as_deref(), Some("monotone"));
+        assert_eq!(details.focus_mode.as_deref(), Some("auto_area"));
+        assert_eq!(details.white_balance.as_deref(), Some("multi_auto"));
+        assert_eq!(details.nd_filter.as_deref(), Some("off"));
+        assert_eq!(details.full_press_snap, None);
+        assert_eq!(details.crop_mode.as_deref(), Some("off"));
+    }
+
     #[test]
     fn extracts_a_dng_preview_without_writing_the_original() {
         let jpeg = solid_jpeg(200, 10, 10, 8, 8);
@@ -817,5 +896,56 @@ mod tests {
         assert_eq!(snapshot(&path), before);
         assert_eq!(fs::read(&cached).unwrap(), jpeg);
         assert!(cached.starts_with(&cache));
+    }
+
+    #[test]
+    fn public_gr_iiix_samples_match_verified_facts_when_present() {
+        let dir = PathBuf::from(std::env::var_os("HOME").unwrap_or_default())
+            .join("Library/Caches/ricoh-mac/gr-iiix-samples");
+        let cases: [(&str, u64, &str, &str, &str, &str); 3] = [
+            (
+                "pixls-us/Ricoh - GR IIIx - 14bit (3:2).DNG",
+                31_357_843,
+                "monotone",
+                "auto_area",
+                "multi_auto",
+                "off",
+            ),
+            (
+                "imaging-resource/GR3xhSLI000100NR0.DNG",
+                34_280_956,
+                "standard",
+                "manual",
+                "manual",
+                "off",
+            ),
+            (
+                "imaging-resource/Y-WB-GRIIIx-R0000001.JPG",
+                14_288_082,
+                "standard",
+                "select",
+                "multi_auto",
+                "off",
+            ),
+        ];
+        for (rel, size, image, focus, wb, nd) in cases {
+            let path = dir.join(rel);
+            if !path.is_file() {
+                continue;
+            }
+            if fs::metadata(&path).map(|info| info.len()).ok() != Some(size) {
+                continue;
+            }
+            let details = inspect_photo(&path, Some(&dir.join("inspect-cache"))).unwrap();
+            assert_eq!(details.camera_model.as_deref(), Some("RICOH GR IIIx"));
+            assert_eq!(details.focal_length_35mm.as_deref(), Some("40 mm"));
+            assert_eq!(details.crop_mode.as_deref(), Some("off"));
+            assert_eq!(details.image_control.as_deref(), Some(image), "{rel}");
+            assert_eq!(details.focus_mode.as_deref(), Some(focus), "{rel}");
+            assert_eq!(details.white_balance.as_deref(), Some(wb), "{rel}");
+            assert_eq!(details.nd_filter.as_deref(), Some(nd), "{rel}");
+            assert_eq!(details.full_press_snap, None, "{rel}");
+            assert_eq!(details.color_temperature, None, "{rel}");
+        }
     }
 }

@@ -138,7 +138,7 @@ JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/ele
 
 官方记录格式是 14-bit DNG，可与 JPEG 同时记录。见 [FAQ](https://www.ricoh-imaging.co.jp/english/support/qa/gr-3/index.html)。
 
-详情页使用 [kamadak-exif](https://crates.io/crates/kamadak-exif) 0.6.2（BSD-2-Clause）读取标准 Exif。拍摄信息面板所需的 Ricoh MakerNote 字段（图像设定、对焦含 Snap、全按快门 Snap、裁切、ND 滤镜和色温）由本 crate 中一小段专用解析读取。当前映射依据公开的 Ricoh 标签说明和合成夹具。这些 MakerNote 布局须对照实拍的 GR IIIx JPEG 与 DNG 核对后，再把界面文案视为最终结果。应用不捆绑 ExifTool，也不把元数据写回 JPEG 或 DNG。在 GR IIIx 文件上，未裁切显示为 40 mm，裁切显示为 50 mm 或 71 mm，不得使用 GR III 的 35 mm 或 47 mm 标签。
+详情页使用 [kamadak-exif](https://crates.io/crates/kamadak-exif) 0.6.2（BSD-2-Clause）读取标准 Exif。拍摄信息面板所需的 Ricoh MakerNote 字段（图像设定、对焦含 Snap、全按快门 Snap、裁切、ND 滤镜和色温）由本 crate 中一小段专用解析读取。解析同时识别合成夹具所用的旧版 Ricoh 0x10xx 布局，以及实拍 GR IIIx JPEG（Exif 0x927C）与 DNG（标签 0xC634）中的紧凑 Pentax 布局 MakerNote。映射依据 ExifTool 公开的 Ricoh 与 Pentax 标签说明，并于 2026 年 11 月 15 日（Asia/Shanghai）对照公开的机内直出样本做过核对。核对记录与仍未验证的字段见 [docs/plans/gr-iiix-makernote-verification.zh-CN.md](plans/gr-iiix-makernote-verification.zh-CN.md)。应用不捆绑 ExifTool，也不把元数据写回 JPEG 或 DNG。在 GR IIIx 文件上，未裁切显示为 40 mm，裁切显示为 50 mm 或 71 mm，不得使用 GR III 的 35 mm 或 47 mm 标签。
 
 对于已经在本地的 DNG，相册网格和详情页用只读的 TIFF/DNG 解析提取内嵌 JPEG 预览，而不做完整 demosaic 冲图。列出相册时不打开 DNG 文件。列表返回后再排队提取，复用相机缩略图那套有并发上限的加载器，已缓存或已在进行中的文件不会重复提取。提取出的 JPEG 可缓存在 `data_dir()/preview-cache`，以源路径、大小和修改时间为键，不得写回 DNG。过期或无法读取的缓存会被忽略并重新提取。该文件的直方图根据预览计算，并标明来源。JPEG 直方图使用 `image` crate（仅启用 JPEG 能力）根据原图像素计算。不使用 `rawler`，以避免 LGPL-2.1 许可带来的义务。
 
@@ -198,7 +198,7 @@ nsh run --target macos
 - 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项将在真机验证后决定。
 - `data_dir()` 在本应用 bundle id 下的精确路径。
 - `blocking` 内外调用 `data_dir()` 或其他环境 API 的约束。
-- Ricoh MakerNote 中图像设定、裁切、Snap、ND 滤镜和色温的布局与文案，须对照实拍的 GR IIIx JPEG 与 DNG 核对。
+- 裁切 50 mm 与 71 mm、Snap、全按快门 Snap、ND 开启、开尔文色温，以及“标准”“单色”以外的图像设定，仍未经 GR IIIx 实拍原片覆盖。见 [docs/plans/gr-iiix-makernote-verification.zh-CN.md](plans/gr-iiix-makernote-verification.zh-CN.md)。
 - 若以后加入传感器级 DNG 预览，是在完成许可评估后采用 ImageIO 还是其他解码库。由于 LGPL-2.1 许可，目前不使用 `rawler`。
 - 相机是否支持 HTTP Range 续传。
 - XMP sidecar 与常用软件的互操作；文件名形态已定为规范的 `{file_name}.xmp`。
@@ -267,7 +267,7 @@ mixed 应用放在仓库根目录：
 
 耗时的 HTTP 与文件操作在 `blocking()` 中执行。`data_dir()` 在异步模块函数中、在进入这些工作之前读取。选择文件夹使用 `pick_paths(OpenDialog::folders())`。
 
-测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达、元数据格式化、MakerNote 解析和 DNG 预览提取），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态、进度摘要、相册浏览、照片详情页和拍摄信息面板，不读取用户的真实保存位置或配置。这些测试不能代替真机验证，也不能代替用实拍 GR IIIx 文件核对 MakerNote 字段。
+测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达、元数据格式化、MakerNote 解析和 DNG 预览提取），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态、进度摘要、相册浏览、照片详情页和拍摄信息面板，不读取用户的真实保存位置或配置。这些测试不能代替真机验证。MakerNote 夹具现已包含实拍 GR IIIx 文件中的紧凑布局；公开样本未覆盖的字段仍视为未验证，见 [docs/plans/gr-iiix-makernote-verification.zh-CN.md](plans/gr-iiix-makernote-verification.zh-CN.md)。
 
 开发命令：
 

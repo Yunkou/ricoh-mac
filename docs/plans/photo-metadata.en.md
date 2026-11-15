@@ -1,6 +1,6 @@
 # Photographer information on the detail page
 
-This document describes which information to show a photographer on the detail page, how those values are typically stored in GR IIIx JPEG and DNG files, and how far the app can go without decoding RAW pixels. The photographer panel described here is implemented. Standard Exif is read with kamadak-exif. Ricoh MakerNote fields are parsed by a small dedicated reader. The current mapping follows public specifications, ExifTool's Ricoh tag documentation, and synthetic fixtures. MakerNote layouts must be checked against real GR IIIx JPEG and DNG files before the displayed labels are treated as final.
+This document describes which information to show a photographer on the detail page, how those values are typically stored in GR IIIx JPEG and DNG files, and how far the app can go without decoding RAW pixels. The photographer panel described here is implemented. Standard Exif is read with kamadak-exif. Ricoh MakerNote fields are parsed by a small dedicated reader. The mapping follows public specifications and ExifTool's Ricoh and Pentax tag documentation. On 15 November 2026 (Asia/Shanghai) it was checked against public, out-of-camera GR IIIx JPEG and DNG files. Real IIIx files use a compact Pentax-layout MakerNote; the older Ricoh 0x10xx layout remains supported for fixtures. Verified and unverified fields are listed in [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md). Labels for fields that those samples did not cover are not treated as final.
 
 ## Information to show
 
@@ -45,7 +45,7 @@ The GR IIIx can record JPEG, DNG, or RAW+JPEG. The official specification descri
 
 Standard Exif and TIFF fields usually include the camera model, lens or focal length, 35 mm equivalent focal length, aperture, shutter, ISO, exposure compensation, exposure program, metering mode, white balance, date and time, pixel dimensions, color space, and GPS when it was recorded. These fields can generally be read from both JPEG and DNG without decoding the image itself.
 
-The following items are usually stored in the Ricoh MakerNote, not in standard Exif:
+The following items are usually stored in the MakerNote, not in standard Exif:
 
 - Image Control
 - Focus mode, including Snap
@@ -54,7 +54,7 @@ The following items are usually stored in the Ricoh MakerNote, not in standard E
 - ND filter
 - Some white-balance details and color temperature
 
-ExifTool records Ricoh `CropMode` as Off, 35 mm, or 47 mm, which matches the GR III crop settings. The GR IIIx settings are 50 mm and 71 mm. The panel must not label those values as 35 mm and 47 mm. Interpret them with the camera model or the 35 mm equivalent focal length. Confirm the exact MakerNote encoding against real JPEG and DNG files when those files are available, and only then lock the labels. That confirmation is not a prerequisite for starting the work.
+Real GR IIIx JPEG and DNG files examined on 15 November 2026 store these values in a compact Pentax-layout MakerNote, which ExifTool documents in its Pentax table (`ImageTone`, `FocusMode`, `NeutralDensityFilter`, and related tags). The older ExifTool Ricoh table records `CropMode` as Off, 35 mm, or 47 mm, which matches the GR III crop settings and was not the layout of those IIIx files. The GR IIIx crop settings remain 50 mm and 71 mm. The panel must not label a GR IIIx file as 35 mm or 47 mm. When no Ricoh `CropMode` tag is present, the app may follow the standard 35 mm equivalent (40 / 50 / 71). Public samples confirmed only the uncropped 40 mm case. See [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md).
 
 DNG files often also carry an embedded JPEG preview. That preview can be used to show the photograph on the detail page, and to estimate a histogram without a RAW decode. A preview is not the sensor sample. If the histogram is built from it, the panel should say so.
 
@@ -78,7 +78,7 @@ Do not call or bundle ExifTool in order to read metadata. The app should keep re
 Feasible now:
 
 - Reading standard exposure fields, focal length and its 35 mm equivalent, color space, date and time, file size and format, and optional GPS, from both JPEG and DNG
-- Showing Image Control, Snap, crop, and ND, and confirming MakerNote layouts against real files when those files are available, before locking the labels
+- Showing Image Control, focus (including Snap when present), crop, and ND from the MakerNote layouts confirmed against public GR IIIx JPEG and DNG files. Fields those samples did not cover are listed in [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md) and are not treated as final
 - Showing the detail image for previewable JPEGs, with a histogram computed from the original pixels
 - If a DNG embedded preview can be extracted, showing that preview and a histogram computed from it, labeled as such
 
@@ -101,15 +101,17 @@ The shortcut list still opens with `?`. It does not share the photographer infor
 ## Phases
 
 1. The detail page is in place, and photographer information sits in the right-hand panel.
-2. kamadak-exif and a Ricoh MakerNote parser are in the same crate. The panel shows standard exposure fields, focal length, color space, date and time, and optional GPS, together with Image Control, focus (including Snap), crop, ND, and color temperature. Crop on GR IIIx files is labeled 40 mm when off, or 50 mm or 71 mm when cropped. It does not use ExifTool's GR III CropMode labels of 35 mm and 47 mm. MakerNote layouts must be checked against real GR IIIx JPEG and DNG files before the displayed labels are treated as final.
+2. kamadak-exif and a dedicated MakerNote parser are in the same crate. The panel shows standard exposure fields, focal length, color space, date and time, and optional GPS, together with Image Control, focus (including Snap), crop, ND, and color temperature. Crop on GR IIIx files is labeled 40 mm when off, or 50 mm or 71 mm when cropped. It does not use ExifTool's GR III CropMode labels of 35 mm and 47 mm. Real IIIx files use a compact Pentax-layout MakerNote; the older Ricoh 0x10xx layout remains supported. Public-sample coverage and remaining gaps are recorded in [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md).
 3. A histogram is computed from original JPEG pixels. For a DNG with an extracted embedded preview, the histogram is computed from that preview and labeled as such.
 4. A RAW original preview and a sensor-data histogram remain for a later version, with a separate decision on the decoder and its license.
 
 ## Decisions already made
 
-Confirmed on 15 November 2026 (Asia/Shanghai): implement Ricoh MakerNotes (Image Control, Snap, crop, ND, and the other MakerNote fields listed above) in the same phase as standard Exif. Do not wait for real GR IIIx samples before starting that work. When real GR IIIx files are available, still confirm the MakerNote layouts against them. Do not reuse ExifTool's GR III CropMode labels (35 mm / 47 mm) for the IIIx (40 mm / 50 mm / 71 mm).
+Confirmed on 15 November 2026 (Asia/Shanghai): implement MakerNotes (Image Control, Snap, crop, ND, and the other MakerNote fields listed above) in the same phase as standard Exif. Do not wait for real GR IIIx samples before starting that work. Do not reuse ExifTool's GR III CropMode labels (35 mm / 47 mm) for the IIIx (40 mm / 50 mm / 71 mm).
 
-The implementation uses kamadak-exif with a dedicated Ricoh MakerNote parser. The information panel does not show the absolute file path.
+Later on the same date, public out-of-camera GR IIIx JPEG and DNG files were used to confirm the layouts. Real IIIx files use a compact Pentax-layout MakerNote. The older Ricoh 0x10xx parser is kept for fixtures. The coverage and the fields that remain unverified are recorded in [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md).
+
+The implementation uses kamadak-exif with a dedicated MakerNote parser. The information panel does not show the absolute file path.
 
 ## Remaining decisions
 

@@ -266,6 +266,72 @@ pub fn on_off_key(value: u16) -> Option<&'static str> {
     }
 }
 
+/// Pentax FocusMode (tag 0x000D). Values follow ExifTool's public Pentax table.
+pub fn pentax_focus_mode_key(value: u16) -> Option<&'static str> {
+    Some(match value {
+        0x2 => "infinity",
+        0x3 => "manual",
+        0x6 => "auto_area",
+        0x8 => "select",
+        0x9 => "pinpoint",
+        0xA => "tracking",
+        0xC => "snap",
+        _ => return None,
+    })
+}
+
+/// Pentax WhiteBalance (tag 0x0019). Values follow ExifTool's public Pentax table.
+pub fn pentax_white_balance_key(value: u16) -> Option<&'static str> {
+    Some(match value {
+        0 => "auto",
+        1 => "daylight",
+        2 => "shade",
+        5 => "manual",
+        6 => "daylight_fluorescent",
+        10 => "cloudy",
+        11 => "warm_fluorescent",
+        14 => "multi_auto",
+        17 => "kelvin",
+        _ => return None,
+    })
+}
+
+/// GR Image Control stored as Pentax ImageTone (tag 0x004F).
+///
+/// ExifTool documents the GR range as 256–267. DSLR ImageTone values 0–11 are
+/// not mapped here.
+pub fn pentax_image_tone_key(value: u16) -> Option<&'static str> {
+    Some(match value {
+        256 => "standard",
+        257 => "vivid",
+        258 => "monotone",
+        259 => "soft_monotone",
+        260 => "hard_monotone",
+        261 => "high_contrast_bw",
+        262 => "positive_film",
+        263 => "bleach_bypass",
+        264 => "retro",
+        265 => "hdr_tone",
+        266 => "cross_process",
+        267 => "negative_film",
+        _ => return None,
+    })
+}
+
+/// Infer GR IIIx crop mode from the standard Exif 35 mm equivalent.
+///
+/// Public samples only confirmed the uncropped 40 mm case. 50 mm and 71 mm
+/// branches follow the camera's published crop equivalents and are unconfirmed
+/// against a cropped original.
+pub fn iiix_crop_from_35mm(equiv_35mm: Option<u32>) -> Option<&'static str> {
+    match equiv_35mm? {
+        38..=44 => Some("off"),
+        48..=55 => Some("crop_50"),
+        65..=80 => Some("crop_71"),
+        _ => None,
+    }
+}
+
 pub fn format_gps(lat: f64, lat_ref: &str, lon: f64, lon_ref: &str) -> Option<String> {
     if !lat.is_finite() || !lon.is_finite() {
         return None;
@@ -363,6 +429,26 @@ mod tests {
         );
         assert_eq!(crop_mode_key(None, 1, Some(50)), Some("crop_50"));
         assert_eq!(crop_mode_key(None, 1, None), Some("on"));
+    }
+
+    #[test]
+    fn pentax_gr_keys_follow_exiftool_tables() {
+        assert_eq!(pentax_image_tone_key(256), Some("standard"));
+        assert_eq!(pentax_image_tone_key(258), Some("monotone"));
+        assert_eq!(pentax_image_tone_key(262), Some("positive_film"));
+        assert_eq!(pentax_image_tone_key(0), None);
+        assert_eq!(pentax_focus_mode_key(0x3), Some("manual"));
+        assert_eq!(pentax_focus_mode_key(0x6), Some("auto_area"));
+        assert_eq!(pentax_focus_mode_key(0x8), Some("select"));
+        assert_eq!(pentax_focus_mode_key(0xC), Some("snap"));
+        assert_eq!(pentax_white_balance_key(5), Some("manual"));
+        assert_eq!(pentax_white_balance_key(14), Some("multi_auto"));
+        assert_eq!(pentax_white_balance_key(17), Some("kelvin"));
+        assert_eq!(iiix_crop_from_35mm(Some(40)), Some("off"));
+        assert_eq!(iiix_crop_from_35mm(Some(50)), Some("crop_50"));
+        assert_eq!(iiix_crop_from_35mm(Some(71)), Some("crop_71"));
+        assert_ne!(iiix_crop_from_35mm(Some(50)), Some("crop_35"));
+        assert_eq!(iiix_crop_from_35mm(Some(35)), None);
     }
 
     #[test]

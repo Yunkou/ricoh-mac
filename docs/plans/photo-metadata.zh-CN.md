@@ -1,6 +1,6 @@
 # 照片详情中的拍摄信息
 
-本文说明在详情页中向摄影师展示哪些信息、这些信息在 GR IIIx 的 JPEG 与 DNG 中通常如何保存，以及在不解码 RAW 像素的前提下可以做到哪一步。文中描述的拍摄信息面板已经实现。标准 Exif 使用 kamadak-exif 读取。Ricoh MakerNote 字段由一小段专用解析读取。当前映射依据公开规格、ExifTool 的 Ricoh 标签说明和合成夹具。MakerNote 布局须对照实拍的 GR IIIx JPEG 与 DNG 核对后，再把界面文案视为最终结果。
+本文说明在详情页中向摄影师展示哪些信息、这些信息在 GR IIIx 的 JPEG 与 DNG 中通常如何保存，以及在不解码 RAW 像素的前提下可以做到哪一步。文中描述的拍摄信息面板已经实现。标准 Exif 使用 kamadak-exif 读取。Ricoh MakerNote 字段由一小段专用解析读取。映射依据公开规格以及 ExifTool 的 Ricoh 与 Pentax 标签说明，并于 2026 年 11 月 15 日（Asia/Shanghai）对照公开的机内直出 GR IIIx JPEG 与 DNG 做过核对。实拍 IIIx 文件使用紧凑的 Pentax 布局 MakerNote；旧的 Ricoh 0x10xx 布局仍用于夹具。已验证与未验证的字段见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。公开样本未覆盖的字段，其界面文案仍不视为最终结果。
 
 ## 要展示的信息
 
@@ -45,7 +45,7 @@ GR IIIx 可记录 JPEG、DNG，或 RAW+JPEG。官方规格写明：静止图像�
 
 标准 Exif 与 TIFF 字段通常包含：相机型号、镜头或焦距、35 mm 换算焦距、光圈、快门、ISO、曝光补偿、曝光程序、测光模式、白平衡、拍摄时间、像素尺寸、色彩空间，以及可选的 GPS。这些字段在 JPEG 和 DNG 中一般都可以不解码图像本身而直接读取。
 
-下列项目多半写在 Ricoh MakerNote 中，而不是标准 Exif 里：
+下列项目多半写在 MakerNote 中，而不是标准 Exif 里：
 
 - 图像设定（Image Control）
 - 对焦模式，包括 Snap
@@ -54,7 +54,7 @@ GR IIIx 可记录 JPEG、DNG，或 RAW+JPEG。官方规格写明：静止图像�
 - ND 滤镜
 - 部分白平衡细项与色温
 
-ExifTool 将 Ricoh 的 `CropMode` 记录为「关 / 35 mm / 47 mm」，这对应 GR III 的裁切档位。GR IIIx 的档位是 50 mm 和 71 mm。显示时不能直接套用 35 mm 和 47 mm 的标签，应结合机身型号或 35 mm 换算焦距来解释。这些 MakerNote 字段的实际编码，须在实拍的 JPEG 和 DNG 文件可用时加以核对，然后再固定文案。此项核对不是开始实现的前提。
+2026 年 11 月 15 日核过的实拍 GR IIIx JPEG 与 DNG，把这些值写在紧凑的 Pentax 布局 MakerNote 中，ExifTool 在其 Pentax 表里记载为 `ImageTone`、`FocusMode`、`NeutralDensityFilter` 等。ExifTool 较旧的 Ricoh 表将 `CropMode` 记为「关 / 35 mm / 47 mm」，这对应 GR III 的裁切档位，并非上述 IIIx 文件的布局。GR IIIx 的裁切档位仍是 50 mm 和 71 mm。显示时不得把 GR IIIx 文件标成 35 mm 或 47 mm。当不存在 Ricoh `CropMode` 标签时，应用可依标准 35 mm 换算（40 / 50 / 71）推断。公开样本只确认了未裁切的 40 mm。详见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。
 
 DNG 往往还带有内嵌 JPEG 预览。预览可以用于详情页中的显示，以及在不进行 RAW 解码的情况下估算直方图。预览并不是传感器上的原始采样，若用它画直方图，需要标明这是根据预览生成的。
 
@@ -78,7 +78,7 @@ DNG 往往还带有内嵌 JPEG 预览。预览可以用于详情页中的显示�
 可以完成：
 
 - 从 JPEG 和 DNG 读取标准拍摄参数、焦距与 35 mm 换算、色彩空间、时间、文件大小与格式，以及可选的 GPS
-- 显示图像设定、Snap、裁切和 ND；在实拍文件可用时核对 MakerNote 布局，再固定文案
+- 按已对照公开 GR IIIx JPEG 与 DNG 核对过的 MakerNote 布局，显示图像设定、对焦（文件中有 Snap 时包括 Snap）、裁切和 ND。公开样本未覆盖的字段见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)，其文案仍不视为最终结果
 - 为可预览的 JPEG 显示详情图和根据原图计算的直方图
 - 若 DNG 内嵌预览可用，则显示该预览，并给出根据预览计算的直方图，同时标明数据来源
 
@@ -101,15 +101,17 @@ DNG 往往还带有内嵌 JPEG 预览。预览可以用于详情页中的显示�
 ## 实施阶段
 
 1. 详情页已经就绪，拍摄信息放在右侧侧栏。
-2. 同一 crate 中已加入 kamadak-exif 与 Ricoh MakerNote 解析。面板展示标准拍摄参数、焦距、色彩空间、时间、可选的 GPS，以及图像设定、对焦（含 Snap）、裁切、ND 和色温。在 GR IIIx 文件上，未裁切显示为 40 mm，裁切显示为 50 mm 或 71 mm，不得套用 ExifTool 中面向 GR III 的 35 mm 和 47 mm 标签。MakerNote 布局须对照实拍的 GR IIIx JPEG 与 DNG 核对后，再把界面文案视为最终结果。
+2. 同一 crate 中已加入 kamadak-exif 与专用 MakerNote 解析。面板展示标准拍摄参数、焦距、色彩空间、时间、可选的 GPS，以及图像设定、对焦（含 Snap）、裁切、ND 和色温。在 GR IIIx 文件上，未裁切显示为 40 mm，裁切显示为 50 mm 或 71 mm，不得套用 ExifTool 中面向 GR III 的 35 mm 和 47 mm 标签。实拍 IIIx 文件使用紧凑的 Pentax 布局 MakerNote；旧的 Ricoh 0x10xx 布局仍可用。公开样本的覆盖范围与未覆盖项见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。
 3. JPEG 直方图根据原图像素计算。若 DNG 已提取内嵌预览，则根据该预览计算直方图，并标明来源。
 4. RAW 原图预览与根据传感器数据计算的直方图留到后续版本，并单独决定解码库与许可。
 
 ## 已确认的事项
 
-2026 年 11 月 15 日（Asia/Shanghai）确认：Ricoh MakerNote（图像设定、Snap、裁切、ND 等）与标准 Exif 在同一阶段实现，不必先等实拍样本再到下一步。实拍的 GR IIIx 文件可用时，仍须核对 MakerNote 布局。不得把 ExifTool 中面向 GR III 的 CropMode 标签（35 mm / 47 mm）用在 GR IIIx（40 mm / 50 mm / 71 mm）上。
+2026 年 11 月 15 日（Asia/Shanghai）确认：MakerNote（图像设定、Snap、裁切、ND 等）与标准 Exif 在同一阶段实现，不必先等实拍样本再到下一步。不得把 ExifTool 中面向 GR III 的 CropMode 标签（35 mm / 47 mm）用在 GR IIIx（40 mm / 50 mm / 71 mm）上。
 
-实现采用 kamadak-exif，并用专用代码解析 Ricoh MakerNote。信息面板不展示绝对路径。
+同日稍后，已用公开的机内直出 GR IIIx JPEG 与 DNG 核对布局。实拍 IIIx 文件使用紧凑的 Pentax 布局 MakerNote。旧的 Ricoh 0x10xx 解析仍用于夹具。覆盖范围与仍未验证的字段见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。
+
+实现采用 kamadak-exif，并用专用代码解析 MakerNote。信息面板不展示绝对路径。
 
 ## 仍需决定的事项
 

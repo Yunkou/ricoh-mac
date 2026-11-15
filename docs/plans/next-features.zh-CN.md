@@ -12,7 +12,7 @@
 
 1. **产品化发布说明，从下一个版本开始使用。** 按 [release-notes.zh-CN.md](release-notes.zh-CN.md) 改发版工作流：读取 `docs/releases/` 中对应版本的中英文说明，再拼接安装步骤与校验段。安装步骤为：解压、拖入「应用程序」、按住 Control 点按并选择「打开」。校验码放在最后。缺少该版本说明文件时，发版作业应失败。已发布的 v0.2.0 GitHub Release 页面不重写；`docs/releases/v0.2.0.zh-CN.md` 与 `docs/releases/v0.2.0.en.md` 作为后续版本的模板保留。此项放在前面，是因为下一次打标签发版需要先具备新的页面格式。
 
-2. **对照实拍的 GR IIIx 文件核对 Ricoh MakerNote。** 图像设定、裁切（未裁切 40 mm，裁切 50 mm 或 71 mm，不得使用 GR III 的 35 mm 或 47 mm）、Snap、全按快门 Snap、ND 滤镜和色温，须用实拍 JPEG 与 DNG 核对后再把界面文案视为最终结果。当前解析依据公开标签说明和合成夹具。此项紧跟现有详情页，属于已实现功能的核对，而不是新功能。
+2. **对照实拍的 GR IIIx 文件核对 Ricoh MakerNote。** 已于 2026 年 11 月 15 日（Asia/Shanghai）用可公开下载的机内直出 GR IIIx JPEG 与 DNG 完成核对。来源、证据和未覆盖项见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。实拍 IIIx 文件使用紧凑的 Pentax 布局 MakerNote，而不是第一版解析所依据的 ExifTool Ricoh 0x10xx 表；该缺陷已经修复。已验证：型号、未裁切 40 mm、图像设定“标准”和“单色”、对焦手动 / 自动区域 / 选择对焦，以及 ND 关闭。下列各项未经实拍覆盖，不能宣称全覆盖：裁切 50 mm 与 71 mm、Snap、全按快门 Snap、ND 开启、开尔文色温，以及其他图像设定。在 GR IIIx 文件上，未裁切仍显示为 40 mm，裁切仍显示为 50 mm 或 71 mm，不得使用 GR III 的 35 mm 或 47 mm 标签。此项紧跟现有详情页，属于已实现功能的核对，而不是新功能。
 
 3. **相册网格中的 DNG 预览。** 已实现。相册网格复用详情页同一套只读提取：有内嵌 JPEG 预览时，格子显示来自 `preview-cache` 的缩略图；没有或无法使用时，沿用「无法预览」占位。仍不得写回原片。这不是传感器级 RAW 解码。
 
