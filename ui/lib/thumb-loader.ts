@@ -52,6 +52,8 @@ export type ThumbLoader = {
   reset(): void;
   loadCount(): number;
   inflightCount(): number;
+  /** Resolves when no thumbnail is in flight and the queue is empty. Used by tests to wait without a timeout. */
+  whenIdle(): Promise<void>;
 };
 
 export function createThumbLoader(options: {
@@ -66,6 +68,21 @@ export function createThumbLoader(options: {
   const done = new Set<string>();
   let loads = 0;
   let generation = 0;
+  const idleWaiters: Array<() => void> = [];
+
+  function isIdle(): boolean {
+    return inflight.size === 0 && queued.length === 0;
+  }
+
+  function notifyIdle() {
+    if (!isIdle()) {
+      return;
+    }
+    const waiters = idleWaiters.splice(0);
+    for (const wake of waiters) {
+      wake();
+    }
+  }
 
   function pump() {
     while (inflight.size < concurrency && queued.length > 0) {
@@ -101,6 +118,7 @@ export function createThumbLoader(options: {
           if (started === generation) {
             pump();
           }
+          notifyIdle();
         });
     }
   }
@@ -115,6 +133,7 @@ export function createThumbLoader(options: {
         queued.push(item);
       }
       pump();
+      notifyIdle();
     },
     remember(ids) {
       for (const id of ids) {
@@ -124,6 +143,7 @@ export function createThumbLoader(options: {
     cancelQueued() {
       queued.length = 0;
       queuedIds.clear();
+      notifyIdle();
     },
     reset() {
       generation += 1;
@@ -132,12 +152,21 @@ export function createThumbLoader(options: {
       inflight.clear();
       done.clear();
       loads = 0;
+      notifyIdle();
     },
     loadCount() {
       return loads;
     },
     inflightCount() {
       return inflight.size;
+    },
+    whenIdle() {
+      if (isIdle()) {
+        return Promise.resolve();
+      }
+      return new Promise((resolve) => {
+        idleWaiters.push(resolve);
+      });
     },
   };
 }

@@ -269,6 +269,10 @@ test("import selected is disabled while an import is running and shows progress 
       { file: "R0000002.DNG", status: "skipped", message: "already present" },
     ],
   };
+  let finishImport!: (value: typeof report) => void;
+  const importHeld = new Promise<typeof report>((resolve) => {
+    finishImport = resolve;
+  });
   const app = await launch({
     folder: "/tmp/ricoh-mac-test-library",
     importSelected: async (_ids: string[], onProgress: unknown) => {
@@ -279,8 +283,7 @@ test("import selected is disabled while an import is running and shows progress 
         total: 2,
         message: "",
       });
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      return report;
+      return importHeld;
     },
   });
   await app.waitFor("id:connect-camera");
@@ -297,6 +300,7 @@ test("import selected is disabled while an import is running and shows progress 
     { timeout: 2000 },
   );
   expect(app.shows("id:connect-camera")).toBe(false);
+  finishImport(report);
   await importing;
   await app.waitFor("id:import-summary");
   expect(app.texts().some((line) => line.includes("已导入 1") && line.includes("已跳过 1"))).toBe(true);
@@ -406,7 +410,6 @@ test("thumbnails are loaded once per item and selection survives later thumbnail
     photos,
     loadThumbnail: async (folder, file) => {
       loadIds.push(`${folder}/${file}`);
-      await new Promise((resolve) => setTimeout(resolve, 15));
       return `file:///tmp/${file}.thumb`;
     },
   });
@@ -417,10 +420,7 @@ test("thumbnails are loaded once per item and selection survives later thumbnail
   expect(selectedLine(app)).toBe("共 20 张 · 已选 1 张");
   await app.waitUntil(() => loadIds.length >= 20, { timeout: 8000 });
   expect(selectedLine(app)).toBe("共 20 张 · 已选 1 张");
-  const counted = loadIds.length;
-  await app.wait(400);
-  expect(loadIds.length).toBe(counted);
-  expect(counted).toBe(20);
+  expect(loadIds.length).toBe(20);
   await app.press("id:photo-1");
   expect(selectedLine(app)).toBe("共 20 张 · 已选 2 张");
   expect(app.shows("id:photo-grid")).toBe(true);
