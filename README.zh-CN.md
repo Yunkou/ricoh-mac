@@ -95,7 +95,7 @@ git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
 ```
 
-推送匹配 `v*` 的标签后，Release 工作流会启动。该工作流在 `RICOH_MAC_NO_WIFI_SWITCH=1` 下运行 `nsh check`、`nsh test` 以及 `cargo fmt` / `clippy`，在 arm64 运行器上打包 macOS 应用，并发布 GitHub Release。归档文件名为 `ricoh-mac-<tag>-macos-arm64.zip`，同时附带 SHA-256 文件。版本号带有 `-rc`、`-beta` 等后缀的标签会发布为 pre-release。对同一标签重新运行该工作流会更新已有 Release，并替换已上传的文件。若要用更新后的工作流文件为已经推送的标签重新打包，请从 `main` 运行 Release 工作流，并将输入 `tag` 设为该标签，例如 `gh workflow run release.yml --ref main -f tag=v0.1.0`。该任务会检出该标签、打包该提交，并将归档上传到已有 Release。
+推送匹配 `v*` 的标签后，Release 工作流会启动。打包会立即在 arm64 运行器上开始。发布 GitHub Release 需等到打包成功，并且同一提交已通过质量门禁：已有成功的 CI 运行；若该提交尚未运行过 CI，则补跑与 CI 相同的 `nsh check`、`nsh test` 以及 `cargo fmt` / `clippy`（`RICOH_MAC_NO_WIFI_SWITCH=1`）。若该提交的 CI 已经通过，工作流不会再重复这些检查。归档文件名为 `ricoh-mac-<tag>-macos-arm64.zip`，同时附带 SHA-256 文件。版本号带有 `-rc`、`-beta` 等后缀的标签会发布为 pre-release。对同一标签重新运行该工作流会更新已有 Release，并替换已上传的文件。若要用更新后的工作流文件为已经推送的标签重新打包，请从 `main` 运行 Release 工作流，并将输入 `tag` 设为该标签，例如 `gh workflow run release.yml --ref main -f tag=v0.1.0`。该工作流会检出该标签、打包该提交，并将归档上传到已有 Release。
 
 
 若只需在 arm64 Mac 上重新生成归档和校验文件、而不发布：

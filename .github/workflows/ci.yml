@@ -2,8 +2,17 @@
 # NSH is installed with the official script pinned to v0.5.1:
 #   NSH_VERSION=v0.5.1 curl -fsSL https://nsh.dev/install.sh | sh
 # That command is documented at https://nsh.dev/docs/installation/.
-# This workflow has not yet been observed on a GitHub-hosted runner;
-# if the installer or PATH layout changes, the "Install NSH" step will need an update.
+# The install step adds $HOME/.local/bin to PATH. If the installer or PATH
+# layout changes, the "Install NSH" step will need an update.
+#
+# Rust build artifacts are cached with Swatinem/rust-cache under the shared key
+# "ci". This job only builds the debug profile. The Release packaging job uses a
+# separate "release" key, so the two jobs do not store a combined target/
+# directory. A combined target/ was about 8.1 GB on an M6 after check, test, and
+# package, close to GitHub's 10 GB cache limit. The action drops incremental
+# artifacts and unused crates before saving. This job writes the cache only from
+# main, so pull requests do not add extra entries. The cache key includes
+# Cargo.lock, the Rust toolchain, and NSH_VERSION.
 name: CI
 
 on:
@@ -32,6 +41,13 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2.9.3
+        with:
+          shared-key: ci
+          env-vars: NSH_VERSION
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install NSH
         env:

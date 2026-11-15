@@ -1,6 +1,6 @@
 # Release workflow time and improvements
 
-This document explains why publishing the macOS app archive from GitHub Actions takes too long, and what to change. It is based on completed runs. The workflow files have not been edited yet.
+This document explains why publishing the macOS app archive from GitHub Actions takes too long, and the workflow changes made in response. The timings below are from completed runs before those changes.
 
 The run under study is [Release run 43707667193](https://github.com/Yunkou/ricoh-mac/actions/runs/43707667193/job/132792154056) for tag v0.2.0 at commit `d6d7e89`. The job queued at 19:10:55 and started at 19:11:00 (Asia/Shanghai). It finished at 19:31:53. Wall-clock time was 20 minutes 53 seconds. The queue wait was about 5 seconds and is not the bottleneck.
 
@@ -42,7 +42,7 @@ On the M6 Mac mini, with NSH 0.5.1 already installed and crate sources already i
 
 ## Recommended changes
 
-The sections below describe the changes in order of benefit and risk. The next implementation pass will add a compile cache and split packaging from the quality gate in the same change. Do not turn on fat LTO, or other release-profile options that lengthen compiles, as a way to shorten the workflow.
+The sections below describe the changes in order of benefit and risk. The workflows now add a compile cache and split packaging from the quality gate. Do not turn on fat LTO, or other release-profile options that lengthen compiles, as a way to shorten the workflow.
 
 ### 1. Cache Cargo build artifacts
 
@@ -50,7 +50,7 @@ Add [Swatinem/rust-cache](https://github.com/Swatinem/rust-cache) to the CI and 
 
 The first run after this change is still a cold start. Later runs, when dependencies have not changed, should bring a release down to about 2 to 4 minutes: check and test are mostly execution time, and the release runner only relinks or compiles incrementally.
 
-Cache size needs care. After check, test, and package on the M6, `target/` is about 8.1 GB. GitHub Actions allows 10 GB of cache per repository. Measure the compressed size of `target/` on one CI run before relying on a full cache. If it does not fit, do not cache all of `target/`. Use sccache, or cache the registry plus a trimmed release output.
+Cache size needs care. After check, test, and package on the M6, a combined `target/` is about 8.1 GB. GitHub Actions allows 10 GB of cache per repository. The workflows therefore do not cache a combined `target/`. CI stores only the debug profile under the shared key `ci`, and the packaging job stores only the release profile under `release`. Swatinem/rust-cache drops incremental artifacts and unused crates before saving. CI writes its cache only from `main`, so pull requests do not add extra entries. On the M6, a zstd archive of the release `deps` and `build` directories was about 450 MB, and a sample of debug rlibs compressed by about six times. sccache is not used.
 
 Caching only `~/.cargo/registry` helps much less, because the time is spent compiling, not downloading.
 
@@ -79,21 +79,22 @@ Standard `macos-latest` is free for public repositories, but its speed varies. T
 - Changing `fetch-depth` from a full history to a shallow clone would not change the total in a meaningful way.
 - Release-profile changes such as fat LTO usually make the slowest step slower. Do not use them to shorten release time.
 
-## Next step
+## Implementation
 
-Confirmed on 15 November 2026 (Asia/Shanghai): complete both of the following in the same implementation pass, not as two separate passes.
+On 15 November 2026 (Asia/Shanghai) the following were done in the same change:
 
-1. Add rust-cache to CI and Release, and record the cache size from one run.
-2. Split packaging and the quality gate into parallel jobs, and require a passing CI run for the same commit before publishing.
+1. Swatinem/rust-cache was added to CI and to the Release packaging job, with the cache split by profile as described above.
+2. Packaging and the quality gate were split into parallel jobs. Publishing waits until packaging has succeeded and the same commit has a passing CI run, or the equivalent checks if CI has not run.
 
-After those changes, watch the wall-clock time of two or three releases before deciding whether a different runner is still needed. Do not set up the M6 Mac mini as a self-hosted runner in this pass.
+Watch the wall-clock time of two or three releases before deciding whether a different runner is still needed. The M6 Mac mini is not set up as a self-hosted runner.
 
 ## Decisions already made
 
-- The next implementation pass adds Swatinem/rust-cache and splits packaging from the quality gate at the same time.
-- The release job may skip tests when CI for the same commit has already succeeded. Do not publish with no quality gate.
-- The M6 Mac mini is not being set up as a self-hosted runner in this pass.
+- Swatinem/rust-cache was added and packaging was split from the quality gate at the same time.
+- The cache is split by profile and trimmed by rust-cache cleanup, rather than storing a combined `target/` or introducing sccache.
+- The release workflow may skip tests when CI for the same commit has already succeeded. It does not publish with no quality gate.
+- The M6 Mac mini is not set up as a self-hosted runner.
 
 ## Remaining decisions
 
-- If a full `target/` cache exceeds the GitHub limit, whether to switch to sccache or to cache only part of the output.
+- After two or three releases, whether a different runner is still needed, based on the observed wall-clock time.
