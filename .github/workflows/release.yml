@@ -123,11 +123,21 @@ jobs:
           # Bash 3.2 (the macOS /bin/bash) errors on "${array[@]}" when the
           # array is empty and set -u is on. The ${array[@]+...} form expands
           # to nothing for an empty array and to the arguments when set.
+          # The Releases API treats --target as target_commitish. If that
+          # commit's .github/workflows/ tree differs from the default branch,
+          # POST /releases requires workflows:write, which GITHUB_TOKEN cannot
+          # be given. See GitHub REST docs "Create a release" and cli/cli#9514.
+          # When the tag already exists, target_commitish is unused; omit
+          # --target and attach the release to that tag.
+          if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null && ! git rev-parse -q --verify "refs/tags/${TAG}^{commit}" >/dev/null; then
+            echo "Refusing to create a release: tag ${TAG} is not present in this checkout." >&2
+            exit 1
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             gh release edit "$TAG" --title "ricoh-mac ${TAG}" --notes-file "$notes" ${channel_args[@]+"${channel_args[@]}"}
             gh release upload "$TAG" "$zip" "$sum" --clobber
           else
-            create_args=(--title "ricoh-mac ${TAG}" --notes-file "$notes" --target "${commit}")
+            create_args=(--title "ricoh-mac ${TAG}" --notes-file "$notes")
             if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
               create_args+=(--verify-tag)
             fi
