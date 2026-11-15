@@ -1,12 +1,17 @@
 import { expect, test } from "nsh/test";
 import {
+  adjacentPhotoId,
   filterAlbumPhotos,
+  isKeptOutsideFilter,
   marksSummary,
+  matchingAlbumPhotos,
+  matchingIndexLabel,
   nextFlag,
   nextRating,
   normalizeFlag,
   normalizeRating,
 } from "./cull";
+import { compactStarGap, compactStarHit, grid } from "../theme";
 import type { LibraryPhoto } from "ricoh-mac/native";
 
 function photo(partial: Partial<LibraryPhoto> & Pick<LibraryPhoto, "id">): LibraryPhoto {
@@ -71,4 +76,31 @@ test("marks summaries stay readable and ratings stay in range", () => {
   expect(marksSummary(3, "none")).toBe("3 星");
   expect(marksSummary(0, "picked")).toBe("已选");
   expect(marksSummary(5, "rejected")).toBe("5 星 · 排除");
+});
+
+test("a kept photo is labeled as outside the filter, and next and previous skip it", () => {
+  const photos = [
+    photo({ id: "a.jpg", rating: 3, flag: "picked" }),
+    photo({ id: "b.jpg", rating: 0, flag: "rejected" }),
+    photo({ id: "c.jpg", rating: 5, flag: "none" }),
+  ];
+  const picked = { kind: "flag" as const, flag: "picked" as const };
+  expect(isKeptOutsideFilter(photos[1], picked, "b.jpg")).toBe(true);
+  expect(isKeptOutsideFilter(photos[0], picked, "b.jpg")).toBe(false);
+  expect(matchingAlbumPhotos(photos, picked).map((item) => item.id)).toEqual(["a.jpg"]);
+  expect(adjacentPhotoId(photos, picked, "b.jpg", 1)).toBe(null);
+  expect(adjacentPhotoId(photos, picked, "b.jpg", -1)).toBe("a.jpg");
+  expect(adjacentPhotoId(photos, picked, "a.jpg", 1)).toBe(null);
+  expect(matchingIndexLabel(photos, picked, "b.jpg")).toBe("不符合当前筛选 · 1 张符合");
+  expect(matchingIndexLabel(photos, picked, "a.jpg")).toBe("1 / 1");
+});
+
+test("compact star hits are at least 24 CSS pixels and are not flush", () => {
+  expect(compactStarHit).toBeGreaterThanOrEqual(24);
+  expect(compactStarGap).toBeGreaterThanOrEqual(4);
+  const filename = 16;
+  const flagRow = 16;
+  const needed =
+    compactStarGap + filename + compactStarGap + compactStarHit + 2 + flagRow + compactStarGap;
+  expect(grid.caption).toBeGreaterThanOrEqual(needed);
 });

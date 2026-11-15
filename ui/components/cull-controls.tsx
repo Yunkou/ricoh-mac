@@ -1,14 +1,15 @@
 import { Text, View } from "nsh";
 import { copy } from "../copy";
 import { marksSummary, normalizeFlag, normalizeRating, type CullFlag } from "../state/cull";
-import type { AlbumPhoto } from "../state/app-model";
-import { color, focusRing, font, radius, space, type } from "../theme";
+import type { AlbumPhoto, MarksStatus } from "../state/app-model";
+import { color, compactStarGap, compactStarHit, focusRing, font, radius, space, type } from "../theme";
 
 export function CullControls(props: {
   photo: () => AlbumPhoto;
   variant: "compact" | "detail";
   onRate: (rating: number) => void;
   onFlag: (flag: CullFlag) => void;
+  status?: () => MarksStatus;
 }) {
   const photo = props.photo();
   const rating = normalizeRating(photo.rating);
@@ -38,7 +39,21 @@ export function CullControls(props: {
       >
         {marksSummary(rating, flag)}
       </Text>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: compact ? 0 : 2 }}>
+      {marksStatusKind(props.status?.(), photo.id) ? (
+        <Text
+          testID={`${prefix}-status`}
+          style={{
+            fontFamily: font.family,
+            color: marksStatusKind(props.status?.(), photo.id) === "saving" ? color.secondary : color.success,
+            fontSize: type.badge,
+            lineHeight: type.lineBadge,
+            numberOfLines: 1,
+          }}
+        >
+          {marksStatusKind(props.status?.(), photo.id) === "saving" ? copy.cullSaving : copy.cullSaved}
+        </Text>
+      ) : null}
+      <View style={{ flexDirection: "row", alignItems: "center", gap: compact ? compactStarGap : 2 }}>
         {[1, 2, 3, 4, 5].map((value) => (
           <StarButton
             testID={`${prefix}-rating-${value}`}
@@ -99,7 +114,7 @@ function StarButton(props: {
   glyph?: string;
   onPress: () => void;
 }) {
-  const size = props.compact ? 18 : 28;
+  const size = props.compact ? compactStarHit : 28;
   return (
     <View
       role="button"
@@ -171,4 +186,14 @@ function FlagButton(props: {
       </Text>
     </View>
   );
+}
+
+function marksStatusKind(status: MarksStatus | undefined, id: string): "saving" | "saved" | null {
+  if (!status || status.id !== id) {
+    return null;
+  }
+  if (status.state === "saving" || status.state === "saved") {
+    return status.state;
+  }
+  return null;
 }

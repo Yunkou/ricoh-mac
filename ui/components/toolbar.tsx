@@ -1,6 +1,7 @@
 import { Text, View, reduceMotion } from "nsh";
 import { titleBar } from "nsh/desktop";
 import { copy } from "../copy";
+import { matchingAlbumPhotos } from "../state/cull";
 import { selectedCount, selectedIds } from "../state/selection";
 import type { AppModel } from "../state/app-model";
 import { displayPath } from "../state/connection";
@@ -123,7 +124,10 @@ export function PhotosToolbar(props: { model: AppModel }) {
           }}
           testID="album-count"
         >
-          {copy.albumCount(model.visibleAlbumPhotos().length, model.albumPhotos().length)}
+          {copy.albumCount(
+            matchingAlbumPhotos(model.albumPhotos(), model.albumFilter()).length,
+            model.albumPhotos().length,
+          )}
         </Text>
       ) : null}
       {model.libraryFolder() ? (

@@ -3,6 +3,8 @@ import type { Signal } from "nsh";
 import { copy } from "../copy";
 import { transitionMs } from "../lib/motion";
 import { infoPanelMinWidth, type AlbumPhoto, type AppModel, type PhotoDetails } from "../state/app-model";
+import { adjacentPhotoId, isKeptOutsideFilter, matchingIndexLabel } from "../state/cull";
+import { fitModeLabel } from "../state/preview-display";
 import { color, font, motion, space, type } from "../theme";
 import { Button } from "./button";
 import { CullControls } from "./cull-controls";
@@ -219,11 +221,13 @@ export function PhotoDetail(props: { model: AppModel }) {
               variant="detail"
               onRate={(rating) => model.ratePhoto(rating, model.viewingId())}
               onFlag={(flag) => model.flagPhoto(flag, model.viewingId())}
+              status={() => model.marksStatus()}
             />
           ) : null}
           <View
             style={{
               flexDirection: "row",
+              flexWrap: "wrap",
               alignItems: "center",
               justifyContent: "center",
               gap: space.md,
@@ -233,32 +237,33 @@ export function PhotoDetail(props: { model: AppModel }) {
               label={copy.previousPhoto}
               kind="secondary"
               testID="viewer-prev"
-              disabled={!hasPrev(model.visibleAlbumPhotos(), model.viewingId())}
+              disabled={adjacentPhotoId(model.albumPhotos(), model.albumFilter(), model.viewingId(), -1) == null}
               onPress={() => model.showAdjacentPhoto(-1)}
             />
             <Text
               testID="viewer-index"
               style={{
                 fontFamily: font.family,
-                color: color.secondary,
+                color: viewingKeptOutsideFilter(model) ? color.warning : color.secondary,
                 fontSize: type.meta,
                 lineHeight: type.lineMeta,
                 fontVariant: font.tabularNums,
               }}
             >
-              {photoIndexLabel(model.visibleAlbumPhotos(), model.viewingId())}
+              {matchingIndexLabel(model.albumPhotos(), model.albumFilter(), model.viewingId())}
             </Text>
             <Button
               label={copy.nextPhoto}
               kind="secondary"
               testID="viewer-next"
-              disabled={!hasNext(model.visibleAlbumPhotos(), model.viewingId())}
+              disabled={adjacentPhotoId(model.albumPhotos(), model.albumFilter(), model.viewingId(), 1) == null}
               onPress={() => model.showAdjacentPhoto(1)}
             />
           </View>
           <View
             style={{
               flexDirection: "row",
+              flexWrap: "wrap",
               alignItems: "center",
               justifyContent: "space-between",
               width: "100%",
@@ -272,15 +277,17 @@ export function PhotoDetail(props: { model: AppModel }) {
                 color: color.tertiary,
                 fontSize: type.meta,
                 lineHeight: type.lineMeta,
-                flex: 1,
-                numberOfLines: 1,
+                flexGrow: 1,
+                flexShrink: 1,
+                minWidth: 160,
+                numberOfLines: 2,
               }}
             >
               {copy.shortcutHint}
             </Text>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: space.sm }}>
+            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm }}>
               <Button
-                label={actualSize() ? copy.actualSize : copy.fitToWindow}
+                label={fitModeLabel(actualSize(), model.photoDetails()?.previewSource)}
                 kind="ghost"
                 testID="viewer-fit"
                 disabled={!previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails())}
@@ -423,26 +430,10 @@ function previewUrl(
   return details?.previewUrl ?? currentPhoto(photos, id)?.previewUrl ?? undefined;
 }
 
-function photoIndex(photos: AlbumPhoto[], id: string | null): number {
-  if (!id) {
-    return -1;
+function viewingKeptOutsideFilter(model: AppModel): boolean {
+  const photo = currentPhoto(model.albumPhotos(), model.viewingId());
+  if (!photo) {
+    return false;
   }
-  return photos.findIndex((photo) => photo.id === id);
-}
-
-function photoIndexLabel(photos: AlbumPhoto[], id: string | null): string {
-  const index = photoIndex(photos, id);
-  if (index < 0) {
-    return "";
-  }
-  return `${index + 1} / ${photos.length}`;
-}
-
-function hasPrev(photos: AlbumPhoto[], id: string | null): boolean {
-  return photoIndex(photos, id) > 0;
-}
-
-function hasNext(photos: AlbumPhoto[], id: string | null): boolean {
-  const index = photoIndex(photos, id);
-  return index >= 0 && index < photos.length - 1;
+  return isKeptOutsideFilter(photo, model.albumFilter(), model.viewingId());
 }

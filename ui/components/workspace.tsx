@@ -1,6 +1,7 @@
 import { Text, View } from "nsh";
 import { copy } from "../copy";
 import type { AppModel } from "../state/app-model";
+import { isKeptOutsideFilter } from "../state/cull";
 import { color, font, space, type } from "../theme";
 import { AlbumFilterBar } from "./album-filter";
 import { AlbumGrid } from "./album-grid";
@@ -73,6 +74,10 @@ export function PhotosWorkspace(props: { model: AppModel }) {
             onRate={(id, rating) => model.ratePhoto(rating, id)}
             onFlag={(id, flag) => model.flagPhoto(flag, id)}
             onRestored={() => model.clearRestorePhoto()}
+            outsideFilter={(photo) =>
+              isKeptOutsideFilter(photo, model.albumFilter(), model.keepPhotoId())
+            }
+            marksStatus={() => model.marksStatus()}
           />
         </View>
       )}

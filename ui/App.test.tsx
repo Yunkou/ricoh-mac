@@ -670,6 +670,11 @@ test("settings shows a saved profile and can delete it", async () => {
   expect(app.texts().some((line) => line.includes("RICOH GR IIIx") && line.includes("S1"))).toBe(true);
   expect(app.shows("id:delete-profile")).toBe(true);
   await app.press("id:delete-profile");
+  await app.waitFor("id:confirm-delete-profile");
+  expect(deleted).toBe(false);
+  expect(app.texts()).toContain("将同时删除钥匙串中已保存的密码。");
+  expect(app.shows("id:profile-empty")).toBe(false);
+  await app.press("id:confirm-delete-profile");
   await app.waitUntil(() => app.shows("id:profile-empty"));
   expect(deleted).toBe(true);
   app.dispose();
@@ -949,9 +954,11 @@ test("F toggles fit and actual size in the viewer", async () => {
   const app = await openFirstAlbumPhoto();
   expect(app.shows("id:viewer-fit-mode")).toBe(true);
   expect(app.shows("id:viewer-actual-mode")).toBe(false);
+  expect(app.texts()).toContain("适应窗口");
   await app.keyboard.press("f");
   await app.waitFor("id:viewer-actual-mode");
   expect(app.shows("id:viewer-fit-mode")).toBe(false);
+  expect(app.texts()).toContain("原片 1:1");
   await app.keyboard.press("f");
   await app.waitFor("id:viewer-fit-mode");
   expect(app.shows("id:viewer-actual-mode")).toBe(false);
@@ -1031,6 +1038,14 @@ test("the detail page develops a DNG from RAW and labels the rendered preview an
   expect(app.shows("id:viewer-image")).toBe(true);
   expect(app.texts()).toContain("直方图（根据 RAW 显影）");
   expect(app.texts()).toContain("嵌入预览");
+  expect(app.texts()).toContain("照片尺寸");
+  expect(app.texts()).toContain("6000 × 4000");
+  expect(app.texts()).toContain("显示尺寸（RAW 显影）");
+  expect(app.texts()).toContain("4096 × 2731");
+  await app.keyboard.press("f");
+  await app.waitFor("id:viewer-actual-mode");
+  expect(app.texts()).toContain("显示尺寸");
+  expect(app.texts().includes("原片 1:1")).toBe(false);
   app.dispose();
 });
 
@@ -1253,11 +1268,13 @@ test("star shortcuts clear, flags stay exclusive, and a failed save is not shown
   await app.waitUntil(() => app.texts().includes("未评级 · 无标记"));
   await app.keyboard.press("2");
   await app.waitUntil(() => app.texts().includes("2 星"));
+  await app.waitUntil(() => app.texts().includes("已保存"));
   failNext = true;
   await app.keyboard.press("4");
   await app.waitUntil(() => app.texts().some((line) => line.includes("无法保存标记") && line.includes("磁盘已满")));
   expect(app.texts()).toContain("2 星");
   expect(app.texts().includes("4 星")).toBe(false);
+  expect(app.texts().includes("已保存")).toBe(false);
   app.dispose();
 });
 
@@ -1296,5 +1313,89 @@ test("the album filter hides unmarked photos and updates when a flag changes", a
   await app.press("id:cull-R0000001.JPG-flag-picked");
   await app.waitFor("id:album-filter-empty");
   expect(app.texts()).toContain("没有符合筛选的照片。");
+  app.dispose();
+});
+
+test("deleting a saved camera profile asks for confirmation first", async () => {
+  let deleted = false;
+  const app = await launchInDevices({
+    folder: "/tmp/ricoh-mac-test-library",
+    wifiSettings: () =>
+      deleted
+        ? defaultWifiSettings
+        : {
+            profile: savedProfile,
+            profiles: [savedProfile],
+            autoSwitchBack: true,
+            previousSsid: null,
+            canSwitchBack: false,
+            viaUtun: null,
+          },
+    wifiDeleteProfile: async () => {
+      deleted = true;
+      return defaultWifiSettings;
+    },
+  });
+  await app.waitFor("id:settings-button");
+  await app.press("id:settings-button");
+  await app.waitFor("id:delete-profile");
+  await app.press("id:delete-profile");
+  await app.waitFor("id:cancel-delete-profile");
+  expect(deleted).toBe(false);
+  await app.press("id:cancel-delete-profile");
+  await app.waitUntil(() => app.shows("id:delete-profile"));
+  expect(deleted).toBe(false);
+  expect(app.shows("id:confirm-delete-profile")).toBe(false);
+  app.dispose();
+});
+
+test("star and flag saves show in-progress and success feedback", async () => {
+  const app = await openFirstAlbumPhoto({
+    setPhotoMarks: async (_path: string, rating: number, flag: string) => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return { rating, flag };
+    },
+  });
+  await app.keyboard.press("3");
+  await app.waitUntil(() => app.texts().includes("正在保存…"));
+  expect(app.texts().includes("已保存")).toBe(false);
+  await app.waitUntil(() => app.texts().includes("已保存"));
+  expect(app.texts()).toContain("3 星");
+  expect(app.texts().includes("正在保存…")).toBe(false);
+  app.dispose();
+});
+
+test("the current photo stays visible when it misses the filter, is labeled, and leaves the keep after a matching neighbor", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:album-photo-0");
+  await app.press("id:cull-R0000001.JPG-flag-picked");
+  await app.waitUntil(() => app.texts().includes("已选"));
+  await app.press("id:album-photo-1");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  await app.press("id:photo-back");
+  await app.waitFor("id:album-grid");
+  await app.press("id:album-filter-picked");
+  await app.waitUntil(() => app.texts().includes("不符合当前筛选"));
+  expect(app.shows("id:cull-R0000001.JPG-summary")).toBe(true);
+  expect(app.shows("id:cull-R0000002.DNG-summary")).toBe(true);
+  expect(app.shows("id:album-kept-R0000002.DNG")).toBe(true);
+  expect(app.texts()).toContain("共 1 / 3 张");
+  await app.press("id:album-photo-1");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  expect(app.texts()).toContain("不符合当前筛选 · 1 张符合");
+  expect(app.texts().includes("2 / 3")).toBe(false);
+  await app.press("id:viewer-prev");
+  await app.waitFor("id:viewer-photo-R0000001.JPG");
+  expect(app.texts()).toContain("1 / 1");
+  expect(app.texts().includes("不符合当前筛选")).toBe(false);
+  await app.press("id:photo-back");
+  await app.waitFor("id:album-grid");
+  expect(app.shows("id:cull-R0000001.JPG-summary")).toBe(true);
+  expect(app.shows("id:cull-R0000002.DNG-summary")).toBe(false);
+  expect(app.shows("id:album-kept-R0000002.DNG")).toBe(false);
+  expect(app.texts()).toContain("共 1 / 3 张");
   app.dispose();
 });

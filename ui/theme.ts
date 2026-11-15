@@ -15,6 +15,9 @@ export const color = {
   success: "#7EA77A",
   warning: "#E09040",
   danger: "#D67A76",
+  histogramRed: "#D67A76",
+  histogramGreen: "#7EA77A",
+  histogramBlue: "#6A8CBA",
   thumb: "#0E0E0DCC",
   overlay: "#00000099",
   segment: "#FFFFFF14",
@@ -67,13 +70,18 @@ export const radius = {
   panel: 10,
 } as const;
 
+export const compactStarHit = 24;
+export const compactStarGap = space.xs;
+export const compactControlsGap = 2;
+export const compactFlagPadY = 1;
+
 export const grid = {
   padding: 32,
   gap: 8,
   minCell: 136,
   minColumns: 1,
   maxColumns: 8,
-  caption: 54,
+  caption: 72,
 } as const;
 
 export const motion = {

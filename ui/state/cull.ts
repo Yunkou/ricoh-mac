@@ -64,6 +64,64 @@ export function filterAlbumPhotos(
   return photos.filter((photo) => photo.id === keepId || matchesFilter(photo, filter));
 }
 
+
+export function matchingAlbumPhotos<T extends LibraryPhoto>(photos: T[], filter: AlbumFilter): T[] {
+  return photos.filter((photo) => matchesFilter(photo, filter));
+}
+
+export function isKeptOutsideFilter(
+  photo: LibraryPhoto,
+  filter: AlbumFilter,
+  keepId?: string | null,
+): boolean {
+  return Boolean(keepId) && photo.id === keepId && !matchesFilter(photo, filter);
+}
+
+export function adjacentPhotoId(
+  photos: LibraryPhoto[],
+  filter: AlbumFilter,
+  currentId: string | null,
+  delta: number,
+): string | null {
+  if (!currentId || delta === 0) {
+    return null;
+  }
+  const currentIndex = photos.findIndex((photo) => photo.id === currentId);
+  if (currentIndex < 0) {
+    return null;
+  }
+  const step = delta > 0 ? 1 : -1;
+  for (let index = currentIndex + step; index >= 0 && index < photos.length; index += step) {
+    if (matchesFilter(photos[index], filter)) {
+      return photos[index].id;
+    }
+  }
+  return null;
+}
+
+export function matchingIndexLabel(
+  photos: LibraryPhoto[],
+  filter: AlbumFilter,
+  currentId: string | null,
+): string {
+  if (!currentId) {
+    return "";
+  }
+  const current = photos.find((photo) => photo.id === currentId);
+  if (!current) {
+    return "";
+  }
+  const matching = matchingAlbumPhotos(photos, filter);
+  if (!matchesFilter(current, filter)) {
+    return copy.filterKeptIndex(matching.length);
+  }
+  const index = matching.findIndex((photo) => photo.id === currentId);
+  if (index < 0) {
+    return "";
+  }
+  return `${index + 1} / ${matching.length}`;
+}
+
 export function marksSummary(rating: number, flag: CullFlag): string {
   const stars = copy.ratingLabel(rating);
   const mark = copy.flagLabel(flag);

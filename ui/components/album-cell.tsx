@@ -1,7 +1,7 @@
 import { Image, Text, View } from "nsh";
 import type { Signal, ViewRef } from "nsh";
 import { copy } from "../copy";
-import type { AlbumPhoto } from "../state/app-model";
+import type { AlbumPhoto, MarksStatus } from "../state/app-model";
 import type { CullFlag } from "../state/cull";
 import { color, focusRing, font, radius, space, type } from "../theme";
 import { CullControls } from "./cull-controls";
@@ -19,6 +19,8 @@ export function AlbumCell(props: {
   onRate: (id: string, rating: number) => void;
   onFlag: (id: string, flag: CullFlag) => void;
   onRestored?: () => void;
+  outsideFilter: () => boolean;
+  marksStatus: () => MarksStatus;
 }) {
   return (
     <View
@@ -48,6 +50,7 @@ export function AlbumCell(props: {
           borderRadius: radius.thumb,
           backgroundColor: color.thumb,
           overflow: "hidden",
+          position: "relative",
           borderWidth: 2,
           borderColor: "transparent",
           alignItems: "center",
@@ -80,6 +83,33 @@ export function AlbumCell(props: {
             </Text>
           </View>
         )}
+        {props.outsideFilter() ? (
+          <View
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: 0,
+              paddingHorizontal: space.xs,
+              paddingVertical: 2,
+              backgroundColor: color.overlay,
+            }}
+          >
+            <Text
+              testID={`album-kept-${props.item().id}`}
+              style={{
+                fontFamily: font.family,
+                color: color.text,
+                fontSize: type.badge,
+                lineHeight: type.lineBadge,
+                textAlign: "center",
+                numberOfLines: 1,
+              }}
+            >
+              {copy.filterKept}
+            </Text>
+          </View>
+        ) : null}
       </View>
       <Text
         style={{
@@ -98,6 +128,7 @@ export function AlbumCell(props: {
         variant="compact"
         onRate={(rating) => props.onRate(props.item().id, rating)}
         onFlag={(flag) => props.onFlag(props.item().id, flag)}
+        status={props.marksStatus}
       />
     </View>
   );

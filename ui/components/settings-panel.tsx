@@ -12,11 +12,12 @@ export function SettingsPanel(props: { model: AppModel }) {
   const model = props.model;
   const visible = signal(false);
   const closing = signal(false);
+  const confirmDelete = signal(false);
   const panelMotion = createMotion();
   return (
     <>
-      {syncSettingsMotion(model.settingsOpen(), visible, closing, panelMotion)}
-      {visible() ? settingsOverlay(model, panelMotion) : null}
+      {syncSettingsMotion(model.settingsOpen(), visible, closing, confirmDelete, panelMotion)}
+      {visible() ? settingsOverlay(model, confirmDelete, panelMotion) : null}
     </>
   );
 }
@@ -25,12 +26,14 @@ function syncSettingsMotion(
   open: boolean,
   visible: Signal<boolean>,
   closing: Signal<boolean>,
+  confirmDelete: Signal<boolean>,
   panelMotion: Motion,
 ): null {
   if (open) {
     if (!visible()) {
       visible.set(true);
       closing.set(false);
+      confirmDelete.set(false);
       void panelMotion.play(enterFade(8, motion.overlay));
     } else if (closing()) {
       closing.set(false);
@@ -46,13 +49,14 @@ function syncSettingsMotion(
       }
       visible.set(false);
       closing.set(false);
+      confirmDelete.set(false);
       panelMotion.reset();
     });
   }
   return null;
 }
 
-function settingsOverlay(model: AppModel, panelMotion: Motion) {
+function settingsOverlay(model: AppModel, confirmDelete: Signal<boolean>, panelMotion: Motion) {
   const profile = model.wifiSettings().profile;
   return (
     <Overlay
@@ -152,17 +156,51 @@ function settingsOverlay(model: AppModel, panelMotion: Motion) {
             disabled={model.isBusy()}
             onPress={() => void model.saveProfileEdits()}
           />
-          {profile ? (
+          {profile && !confirmDelete() ? (
             <Button
               label={copy.deleteProfile}
               icon="trash"
               kind="ghost"
               testID="delete-profile"
               disabled={model.isBusy()}
-              onPress={() => void model.removeProfile()}
+              onPress={() => confirmDelete.set(true)}
             />
           ) : null}
         </View>
+        {profile && confirmDelete() ? (
+          <View style={{ gap: space.sm }}>
+            <Text
+              testID="delete-profile-confirm-hint"
+              style={{
+                fontFamily: font.family,
+                color: color.secondary,
+                fontSize: type.meta,
+                lineHeight: type.lineMeta,
+              }}
+            >
+              {copy.deleteProfileConfirmHint}
+            </Text>
+            <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
+              <Button
+                label={copy.deleteProfileConfirm}
+                kind="secondary"
+                testID="confirm-delete-profile"
+                disabled={model.isBusy()}
+                onPress={() => {
+                  confirmDelete.set(false);
+                  void model.removeProfile();
+                }}
+              />
+              <Button
+                label={copy.deleteProfileCancel}
+                kind="ghost"
+                testID="cancel-delete-profile"
+                disabled={model.isBusy()}
+                onPress={() => confirmDelete.set(false)}
+              />
+            </View>
+          </View>
+        ) : null}
         <Button
           label={`${copy.autoSwitchBack}：${model.wifiSettings().autoSwitchBack ? copy.autoSwitchOn : copy.autoSwitchOff}`}
           icon="arrow-left-right"

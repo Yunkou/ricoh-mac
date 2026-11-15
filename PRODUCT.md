@@ -18,7 +18,7 @@ The primary user is the owner of a Ricoh GR IIIx, using a Mac to import photogra
 
 ## Product Purpose
 
-The application connects to a GR IIIx, switching to a saved camera Wi-Fi profile when one exists, lists photographs on the camera, and imports selected or all files into one local save location, keeping original file names. The user can then browse those files in a local album, open a full-page photograph detail view, and read photographer information. The local album supports 1 to 5 stars, plus picked and rejected flags, persisted next to the photograph and in a local index. A later milestone adds a sensor-level RAW / DNG preview. Success in the current work means the user can choose a save location, see a truthful connection state, browse and import camera photographs, review imported photographs in the album and on the detail page, and star or flag those photographs, without changing anything on the camera or overwriting complete local originals.
+The application connects to a GR IIIx, switching to a saved camera Wi-Fi profile when one exists, lists photographs on the camera, and imports selected or all files into one local save location, keeping original file names. The user can then browse those files in a local album, open a full-page photograph detail view, and read photographer information. The local album supports 1 to 5 stars, plus picked and rejected flags, persisted next to the photograph and in a local index. On the detail page, a local DNG can be developed from sensor data into a display raster, distinct from an embedded preview and from the original photograph pixels. Success in the current work means the user can choose a save location, see a truthful connection state, browse and import camera photographs, review imported photographs in the album and on the detail page, including a labeled RAW develop when one is available, and star or flag those photographs, without changing anything on the camera or overwriting complete local originals.
 
 ## Positioning
 
@@ -53,9 +53,14 @@ Milestone 3:
 - In Photos and on the detail page, when a photograph is focused or viewed and text is not being edited, `0`–`5` set the rating (`0` clears it; pressing the same star again also clears it), `P` toggles picked, `X` toggles rejected, and `U` clears the flag only.
 - Marks persist in an XMP sidecar next to the photograph and in a local SQLite index. Original JPEG and DNG bytes are not rewritten, and marks are not written back to the camera.
 
-Out of scope for the current milestones, and still planned for later milestones: a sensor-level RAW / DNG preview and histogram. AI-assisted culling, Developer ID signing, notarization, and installer distribution are outside version 1.
+Confirmed in Milestone 4:
 
-Undecided: the public application name and final bundle identifier; whether the application should carry a LICENSE file; whether the icon accents should be more saturated; whether a later sensor-level DNG preview should use ImageIO or another decoder after a license review; remaining camera HTTP details listed for hardware validation in the requirements document.
+- On the detail page, a local DNG can be developed from sensor data through macOS Core Image `CIRAWFilter.outputImage`. The result is a display raster with a long-edge cap of 4096. It is not an upgrade of the embedded JPEG, and it is not the original photograph at 100%. The page labels a RAW develop and an embedded preview as such. While the develop is running, an existing embedded preview stays visible; on failure the page falls back to that preview and names the source. The histogram is computed from the same developed JPEG and is labeled as a rendered-image histogram, not as a linear sensor histogram. The album grid still does not decode sensor-level RAW data; it uses an embedded JPEG preview when one exists.
+- The detail page can toggle between fitting the current display image to the window and showing it at display-pixel size. For an original JPEG, that mode is the photograph itself and is labeled 原片 1:1. For a RAW develop or an embedded preview, the control is labeled 显示尺寸. When photograph size and display size differ, the information panel lists both.
+
+Out of scope for the current milestones, and still planned for later milestones: AI-assisted culling. Developer ID signing, notarization, and installer distribution are outside version 1.
+
+Undecided: the public application name and final bundle identifier; whether the application should carry a LICENSE file; whether the icon accents should be more saturated; remaining camera HTTP details listed for hardware validation in the requirements document.
 
 ## Brand Commitments
 

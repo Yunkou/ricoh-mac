@@ -6,6 +6,10 @@ Subject: ricoh-mac, HEAD `b8de02857326e74f8cf30f3ff7662fa2ab77fc60` (`b8de028`).
 
 Questions skipped: this run was completed by an executor subagent with no AskUserQuestion channel, so the user could not be asked to choose a priority, tone, or fix scope. Those decisions belong to the person reading this record.
 
+## Follow-up (16 November 2026)
+
+The user later asked for the confirmed, source- or documentation-checkable findings in this record to be fixed. The “Fix status” notes under each finding describe that follow-up. Headless behavior tests were added for the fixable items, and the bilingual product and design documents were aligned. A real window was still not launched or driven, and no screenshots were taken. Contrast, frosted glass, and real layout must not be described as having passed.
+
 ## Scope and method
 
 The review covers the home screen, device connection and import, the local album (DNG load / failure / filtering), the detail page (photographer information, RAW source switching, histogram, navigation, culling), settings, empty / loading / error states, keyboard / focus / accessibility, narrow-window layout, and whether the fixed dark theme, warm-amber accent, bundled ChillDINGothic, multi-tone Kubai icons, frosted glass, and photographic wording still match the committed constraints. Extra checks: whether RAW “1:1 / actual size” reads as original pixels, high-density album stars, navigation after a filter would have hidden the current photograph, and error plus persistence feedback.
@@ -68,6 +72,7 @@ The official five audit dimensions also do not amount to a rendered pass: access
 - **Minimal fix:** Rename the control and shortcut to “display pixels” or “display size”, and say when the image is not photograph pixels. Do not use the same “1:1” label for a true original JPEG path and a downsampled raster. The panel can show both photograph size and current display size.
 - **Verification:** Confirmed in source. In a real window, open the same GR IIIx DNG and compare the panel size, fit-to-window, and the so-called “1:1” pixel size, and see whether the wording still misleads.
 - **Boundary:** Not seen in a real window. On-screen CSS pixels were not measured against 4096 or 6000.
+- **Fix status:** Copy and the information panel have been corrected. An original JPEG in display-pixel mode is labeled 原片 1:1; a RAW develop or an embedded preview is labeled 显示尺寸. When the two sizes differ, the panel lists 照片尺寸 and 显示尺寸（RAW 显影 / 嵌入预览） separately. The shortcut now reads “适应窗口或显示像素”. Headless tests cover the control labels and the 6000×4000 versus 4096×2731 distinction. A real window is still required: open the same GR IIIx DNG and check whether “显示尺寸” can still be read as original 100%.
 
 ### P1 · Compact album stars are smaller than 24 CSS px and have no gap
 
@@ -76,6 +81,7 @@ The official five audit dimensions also do not amount to a rendered pass: access
 - **Minimal fix:** Make compact stars at least 24×24 and keep neighboring 24 px circles from intersecting, or keep the glyph and enlarge the invisible hit target. Do not shrink the 28 px detail controls.
 - **Verification:** Sizes are confirmed in source. In a real window, use a pointer (and touch if relevant) on adjacent stars, and check whether focus rings overlap or become hard to see.
 - **Boundary:** No pointer or touch trial was done. How far WCAG 2.5.8 should bind pointer-only desktop controls can be decided during visual acceptance.
+- **Fix status:** Compact star hit targets are now 24×24 with a 4 CSS px gap. Detail-page stars remain 28 px. The album caption row grew from 54 to 72 so wrapped flag controls still fit; the minimum cell width was not increased. Headless tests lock the hit size and the caption budget. Miss-clicks and focus rings still need a pointer check in a real window.
 
 ### P2 · A filter keeps the current photograph, but does not mark it as outside the filter
 
@@ -84,6 +90,7 @@ The official five audit dimensions also do not amount to a rendered pass: access
 - **Minimal fix:** Label the kept, unmatched cell or detail page, or offer a “show only matches” action that drops the keep. After the user moves to another photograph, apply the filter strictly so the keep does not linger.
 - **Verification:** Unit tests confirm the keep. Headless UI tests cover hiding other photographs and the empty state after a flag is cleared. A real window should be used to change the filter mid-detail and then press previous / next, and to see whether the kept item is recognizable.
 - **Boundary:** The look of a kept item was not seen, and no headless test covers changing the filter on the detail page and then moving to another photograph.
+- **Fix status:** A kept, unmatched photograph is now labeled 不符合当前筛选 in the grid and on the detail page. The album count includes only matching photographs. Previous and next move only among matches, and the index no longer treats the kept item as part of the filtered order. After the user leaves that photograph, the keep is dropped. Headless tests cover the label, the count, navigation, and the strict filter after leaving. The detail page still has no filter bar, so “change the filter mid-detail” still needs a real window, and would need a visual check if a filter control is later added there.
 
 ### P2 · Deleting a saved camera profile has no confirmation
 
@@ -92,6 +99,7 @@ The official five audit dimensions also do not amount to a rendered pass: access
 - **Minimal fix:** Add a confirmation that the stored password will be removed, or move deletion away from Save and require an explicit action.
 - **Verification:** Confirmed in source that there is no confirmation. Check wording and mis-click risk in the real settings panel. Do not experiment with the user’s real Keychain.
 - **Boundary:** The real settings window was not clicked.
+- **Fix status:** Deletion now requires confirmation. The first press of 删除 does not remove the profile. The confirmation states that the password stored in the Keychain will also be removed. Cancel returns to the delete control. Headless tests cover confirm-to-delete and cancel-without-deleting. Wording, mis-click risk, and focus order still need a look in the real settings panel. Do not experiment with the user’s real Keychain.
 
 ### P2 · A failed mark save is reported; a successful save is mostly just the control updating
 
@@ -100,6 +108,7 @@ The official five audit dimensions also do not amount to a rendered pass: access
 - **Minimal fix:** Add a short in-control pending or saved state. Keep the existing notice for failures. Do not add a persistent success bar for every star press.
 - **Verification:** Headless tests cover the failure path. In a real window, check that the notice is obvious in the album and on the detail page, and what the control does during a slow save.
 - **Boundary:** Real sidecar write latency and notice contrast on vibrancy were not measured.
+- **Fix status:** Star and flag saves now show 正在保存… while the write is in flight and 已保存 after success. Failures still use only the existing notice. There is no persistent success bar on every star press. Headless tests cover in-progress, success, and failure. A real window is still needed to judge whether the notice is obvious, and how the control feels during a slow save.
 
 ### P2 · `PRODUCT.md` and `DESIGN.md` lag the shipped RAW detail preview
 
@@ -108,6 +117,7 @@ The official five audit dimensions also do not amount to a rendered pass: access
 - **Minimal fix:** In a separate documentation change, align these files with the requirements and tech stack: two preview sources, the downsample policy, and that “1:1” currently means display-image pixels.
 - **Verification:** Compare the two files with HEAD and `docs/tech-stack.*.md`. They were left unchanged in this review, as authorized.
 - **Boundary:** Documentation consistency only.
+- **Fix status:** Fixed. `PRODUCT.md` and `PRODUCT.zh-CN.md` now record the RAW detail preview as a confirmed Milestone 4 capability, not a later plan, and they describe the display raster, the long-edge cap of 4096, and the distinction between 原片 1:1 and 显示尺寸. `DESIGN.md` and `DESIGN.zh-CN.md` were aligned. At the time of this follow-up, `docs/requirements.*`, `docs/tech-stack.*`, and `docs/plans/next-features.*` already matched the current implementation and were left unchanged.
 
 ### P2 · The detail toolbar and the filter bar may get tight in a narrow window
 
@@ -116,6 +126,7 @@ The official five audit dimensions also do not amount to a rendered pass: access
 - **Minimal fix:** Look in a real narrow window first. If clipping or crowding is real, fold secondary actions into the existing shortcut list, and leave a visible cue when the info panel is auto-hidden.
 - **Verification:** Requires a real window. Headless tests do not include a width matrix.
 - **Boundary:** This is a risk from layout structure, not a confirmed overflow defect.
+- **Fix status:** A conservative safeguard was added without changing product meaning: the detail footer and tool row can wrap, and the shortcut hint can use two lines and shrink. The filter chips already wrapped; that behavior is unchanged. Headless tests have no window-width matrix, so clipping or crowding at 720 px, 900 px, or narrower is still unproven and still needs a real window.
 
 ### P3 · Histogram blue is not a theme token
 
@@ -124,17 +135,20 @@ The official five audit dimensions also do not amount to a rendered pass: access
 - **Minimal fix:** Move channel colors into the theme and check them on the dark background.
 - **Verification:** Confirmed in source. Contrast needs a visual or rendered measurement.
 - **Boundary:** Not a functional defect.
+- **Fix status:** Histogram red, green, and blue now live in `ui/theme.ts`, and the canvas uses those tokens. A headless test locks blue to `color.histogramBlue`. Contrast still needs a real window or a rendered measurement.
 
 ## Items that still need a real window
 
+The source issues below were fixed in this follow-up, but their appearance still needs a real window. Nothing here is marked as visually accepted.
+
 1. Whether the fixed dark theme, reserved warm amber, frosted glass / vibrancy, bundled ChillDINGothic, and multi-tone Kubai icons hold up on the system dark material, including WCAG AA contrast on those surfaces.
 2. Whether keyboard focus rings are visible on the transparent top row, the grid, the stars, and the settings overlay.
-3. Whether RAW / embedded-preview “1:1” looks like original 100%, and whether the photograph size in the panel contradicts the image.
-4. Miss-clicks and overlapping focus rings on compact album stars.
-5. Home cards, filter chips, the detail footer, and the auto-hidden info panel at about 720 px, 900 px, and narrower.
-6. The look of empty, loading, error, and success states on home, devices, album, detail, and settings, including the failed-mark notice.
-7. Whether a filter-kept current photograph is recognizable in the grid and on the detail page.
-8. Mis-click risk when deleting a profile, and settings field focus order.
-9. Readability of Chinese photographer copy, histogram labels, and source badges over the photograph.
+3. Whether the corrected 显示尺寸 and 原片 1:1 labels can still be read as original 100% in a real window, and whether photograph size and display size in the panel are clearly distinct.
+4. Whether compact album stars, now 24 px with a gap, still cause miss-clicks or overlapping focus rings.
+5. Home cards, filter chips, the detail footer (now allowed to wrap and shrink), and the auto-hidden info panel at about 720 px, 900 px, and narrower. Clipping or crowding is still unproven without a window.
+6. The look of empty, loading, error, and success states on home, devices, album, detail, and settings, including the failed-mark notice, and whether 正在保存… and 已保存 are clear and appropriately quiet.
+7. Whether the new 不符合当前筛选 label on a filter-kept photograph is recognizable in the grid and on the detail page.
+8. Confirmation copy and mis-click risk when deleting a profile, and settings field focus order.
+9. Readability of Chinese photographer copy, histogram labels (including contrast of the tokenized channel colors on the dark background), and source badges over the photograph.
 
 Until those items are closed in a real window, the app should not be described as having passed design or accessibility review.

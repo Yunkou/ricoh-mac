@@ -1,7 +1,7 @@
 import { List, windowSize } from "nsh";
 import type { ListRef, Signal } from "nsh";
 import { cellWidth, columnCount } from "../state/selection";
-import type { AlbumPhoto } from "../state/app-model";
+import type { AlbumPhoto, MarksStatus } from "../state/app-model";
 import type { CullFlag } from "../state/cull";
 import type { ThumbLoader, ThumbRequest } from "../lib/thumb-loader";
 import { grid, space } from "../theme";
@@ -32,6 +32,8 @@ export function AlbumGrid(props: {
   onRate: (id: string, rating: number) => void;
   onFlag: (id: string, flag: CullFlag) => void;
   onRestored: () => void;
+  outsideFilter: (photo: AlbumPhoto) => boolean;
+  marksStatus: () => MarksStatus;
 }) {
   return (
     <List
@@ -69,6 +71,8 @@ export function AlbumGrid(props: {
           onRate={props.onRate}
           onFlag={props.onFlag}
           onRestored={props.onRestored}
+          outsideFilter={() => props.outsideFilter(item())}
+          marksStatus={props.marksStatus}
         />
       )}
     </List>

@@ -15,7 +15,18 @@ import {
   whiteBalanceLabel,
 } from "../copy";
 import type { AppModel } from "../state/app-model";
+import {
+  displayPixelDimensions,
+  displaySizeCaption,
+  pixelDimensionsLabel,
+} from "../state/preview-display";
 import { color, font, panelBackdrop, radius, space, type } from "../theme";
+
+export const histogramChannelFills = {
+  red: color.histogramRed,
+  green: color.histogramGreen,
+  blue: color.histogramBlue,
+} as const;
 
 export function PhotoInfoPanel(props: {
   model: AppModel;
@@ -78,9 +89,22 @@ export function PhotoInfoPanel(props: {
           <InfoRow
             label={copy.filePixels}
             value={() =>
-              pixelLabel(
-                props.model.photoDetails()?.width ?? props.naturalSize()?.width ?? null,
-                props.model.photoDetails()?.height ?? props.naturalSize()?.height ?? null,
+              pixelDimensionsLabel(
+                props.model.photoDetails()?.width ?? null,
+                props.model.photoDetails()?.height ?? null,
+              ) ??
+              pixelDimensionsLabel(props.naturalSize()?.width ?? null, props.naturalSize()?.height ?? null)
+            }
+          />
+          <InfoRow
+            testID="photo-display-size"
+            label={displaySizeCaption(props.model.photoDetails()?.previewSource)}
+            value={() =>
+              displayPixelDimensions(
+                props.model.photoDetails()?.width,
+                props.model.photoDetails()?.height,
+                props.naturalSize()?.width ?? props.model.previewRasterSize()?.width,
+                props.naturalSize()?.height ?? props.model.previewRasterSize()?.height,
               )
             }
           />
@@ -148,11 +172,11 @@ function HeroRow(props: { label: string; value: () => string | null | undefined 
   );
 }
 
-function InfoRow(props: { label: string; value: () => string | null | undefined }) {
+function InfoRow(props: { label: string; value: () => string | null | undefined; testID?: string }) {
   return (
     <>
       {props.value() ? (
-        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: space.sm }}>
+        <View testID={props.testID} style={{ flexDirection: "row", alignItems: "flex-start", gap: space.sm }}>
           <Text
             style={{
               fontFamily: font.family,
@@ -240,9 +264,9 @@ function drawHistogram(
   const bins = Math.max(red.length, green.length, blue.length, 1);
   const max = Math.max(1, ...red, ...green, ...blue);
   const channels: Array<{ values: number[]; fill: string }> = [
-    { values: red, fill: "#D67A76" },
-    { values: green, fill: "#7EA77A" },
-    { values: blue, fill: "#6A8CBA" },
+    { values: red, fill: histogramChannelFills.red },
+    { values: green, fill: histogramChannelFills.green },
+    { values: blue, fill: histogramChannelFills.blue },
   ];
   for (const channel of channels) {
     cx.fillStyle = channel.fill;
@@ -310,11 +334,4 @@ function fileSizeLabel(size: number | null | undefined): string | null {
     return null;
   }
   return formatFileSize(size);
-}
-
-function pixelLabel(width: number | null, height: number | null): string | null {
-  if (!width || !height) {
-    return null;
-  }
-  return `${Math.round(width)} × ${Math.round(height)}`;
 }

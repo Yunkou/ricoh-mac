@@ -28,7 +28,9 @@ import {
   type PressModifiers,
 } from "./connection";
 import {
+  adjacentPhotoId,
   filterAlbumPhotos,
+  matchingAlbumPhotos,
   nextFlag,
   nextRating,
   normalizeFlag,
@@ -36,6 +38,12 @@ import {
   type AlbumFilter,
   type CullFlag,
 } from "./cull";
+import { rasterSize } from "./preview-display";
+
+export type MarksStatus = {
+  state: "idle" | "saving" | "saved" | "failed";
+  id: string | null;
+};
 
 const defaultWifiSettings: WifiSettings = {
   profile: null,
@@ -91,6 +99,8 @@ export function createAppModel() {
   const photoDetails = signal<PhotoDetails | null>(null);
   const rawStatus = signal<"idle" | "loading" | "ready" | "failed">("idle");
   const preferRaw = signal(true);
+  const previewRasterSize = signal<{ width: number; height: number } | null>(null);
+  const marksStatus = signal<MarksStatus>({ state: "idle", id: null });
   let detailsToken = 0;
   const thumbLoader = createThumbLoader({
     concurrency: 4,
@@ -372,6 +382,10 @@ export function createAppModel() {
     }
   }
 
+  function keepPhotoId(): string | null {
+    return viewingId() ?? restorePhotoId() ?? focusedId();
+  }
+
   function refreshVisiblePhotos(keepId?: string | null) {
     const next = filterAlbumPhotos(albumPhotos(), albumFilter(), keepId);
     const current = visibleAlbumPhotos();
@@ -392,7 +406,7 @@ export function createAppModel() {
   function applyAlbumList(items: AlbumPhoto[]) {
     albumThumbLoader.reset();
     albumPhotos.set(items);
-    refreshVisiblePhotos(restorePhotoId());
+    refreshVisiblePhotos(keepPhotoId());
     const cached: Record<string, string> = {};
     const pending: ThumbRequest[] = [];
     for (const photo of items) {
@@ -476,6 +490,8 @@ export function createAppModel() {
     photoDetails.set(null);
     rawStatus.set("idle");
     preferRaw.set(true);
+    previewRasterSize.set(null);
+    refreshVisiblePhotos(id);
     void loadPhotoDetails(id);
   }
 
@@ -496,6 +512,7 @@ export function createAppModel() {
     viewingId.set(null);
     photoDetails.set(null);
     rawStatus.set("idle");
+    previewRasterSize.set(null);
     refreshVisiblePhotos(current);
     if (mainArea() === "photo") {
       mainArea.set("photos");
@@ -537,6 +554,7 @@ export function createAppModel() {
             previewSource: "raw",
             histogram: raw.histogram,
           });
+          previewRasterSize.set(rasterSize(raw.renderedWidth, raw.renderedHeight));
           rawStatus.set("ready");
         } catch {
           if (isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
@@ -571,6 +589,7 @@ export function createAppModel() {
         const details = await Library.photoDetails(photo.path);
         if (isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
           photoDetails.set(details);
+          previewRasterSize.set(null);
           rawStatus.set(rawStatus() === "ready" || rawStatus() === "failed" ? rawStatus() : "idle");
         }
       } catch {
@@ -597,6 +616,7 @@ export function createAppModel() {
         previewSource: "raw",
         histogram: raw.histogram,
       });
+      previewRasterSize.set(rasterSize(raw.renderedWidth, raw.renderedHeight));
       rawStatus.set("ready");
     } catch {
       if (isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
@@ -610,20 +630,18 @@ export function createAppModel() {
     if (!current) {
       return;
     }
-    const items = visibleAlbumPhotos();
-    const index = items.findIndex((photo) => photo.id === current);
-    const next = index + delta;
-    if (index < 0 || next < 0 || next >= items.length) {
+    const nextId = adjacentPhotoId(albumPhotos(), albumFilter(), current, delta);
+    if (!nextId) {
       return;
     }
-    showPhoto(items[next].id);
+    showPhoto(nextId);
   }
 
   function showEdgePhoto(edge: "first" | "last") {
     if (!viewingId()) {
       return;
     }
-    const items = visibleAlbumPhotos();
+    const items = matchingAlbumPhotos(albumPhotos(), albumFilter());
     if (items.length === 0) {
       return;
     }
@@ -673,7 +691,7 @@ export function createAppModel() {
           : photo,
       ),
     );
-    refreshVisiblePhotos(viewingId() ?? restorePhotoId());
+    refreshVisiblePhotos(keepPhotoId());
   }
 
   async function writeMarks(id: string, rating: number, flag: CullFlag) {
@@ -681,20 +699,23 @@ export function createAppModel() {
     if (!photo) {
       return;
     }
+    marksStatus.set({ state: "saving", id });
     try {
       const saved = await Library.setPhotoMarks(photo.path, rating, flag);
       applyLocalMarks(id, normalizeRating(saved.rating), normalizeFlag(saved.flag));
+      marksStatus.set({ state: "saved", id });
       if (notice().startsWith(copy.cullFailed)) {
         notice.set("");
       }
     } catch (err) {
+      marksStatus.set({ state: "failed", id });
       notice.set(`${copy.cullFailed} ${String(err)}`);
     }
   }
 
   function setAlbumFilter(filter: AlbumFilter) {
     albumFilter.set(filter);
-    refreshVisiblePhotos(viewingId() ?? restorePhotoId());
+    refreshVisiblePhotos(keepPhotoId());
   }
 
   function ratePhoto(rating: number, id?: string | null) {
@@ -902,6 +923,8 @@ export function createAppModel() {
     rawStatus,
     preferRaw,
     setPreferRaw,
+    previewRasterSize,
+    marksStatus,
     thumbLoader,
     albumThumbLoader,
     isBusy,
@@ -923,6 +946,7 @@ export function createAppModel() {
     showAdjacentPhoto,
     showEdgePhoto,
     openFocusedPhoto,
+    keepPhotoId,
     setAlbumFilter,
     ratePhoto,
     flagPhoto,
