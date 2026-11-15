@@ -38,8 +38,10 @@ export function PhotosWorkspace(props: { model: AppModel }) {
       ) : (
         <AlbumGrid
           photos={model.albumPhotos}
+          restoreId={model.restorePhotoId}
           onPhotoPress={(_index, id) => model.openAlbumPhoto(id)}
           onFocusPhoto={(id) => model.focusedId.set(id)}
+          onRestored={() => model.clearRestorePhoto()}
         />
       )}
     </>

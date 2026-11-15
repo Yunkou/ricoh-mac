@@ -95,13 +95,13 @@ Public sources (to be validated on hardware): community clients commonly use `GE
 
 ### 4.3 Browse a local album
 
-**User story:** As a user, I can open 照片 without connecting a camera, browse thumbnails of files already imported into the save location, open a large view, and move to the previous or next photo.
+**User story:** As a user, I can open 照片 without connecting a camera, browse thumbnails of files already imported into the save location, open a photo detail page, and move to the previous or next photo.
 
 **Acceptance criteria:**
 
 - 照片 is available from the home screen, from the in-app area switch, and from 查看照片 after an import. It does not require a camera connection or a network.
 - The user chooses the album root with the system folder dialog. That folder is also the single import target. The app lists photograph files that sit directly in that folder. It does not descend into subfolders, and it must not scan the system Photos library or other unauthorized paths.
-- The interface shows a virtualized thumbnail grid and a large-image viewer. After opening a photo, the user can close the viewer and can move to the previous or next photo in the same folder.
+- The interface shows a virtualized thumbnail grid and a photo detail page. After opening a photo, the user can return to the grid with Back or Esc and can move to the previous or next photo in the same folder.
 - A file that cannot be decoded, including a DNG or other RAW file for which this interface has no raster preview, shows an explanation, not an empty frame.
 - Browsing is read-only. The app must not create, rewrite, move, or delete original files in the save location.
 - After a refresh or after entering 照片 again, files added later inside the agreed scan scope should appear.
@@ -181,7 +181,7 @@ The version 1 interface follows the [Impeccable](https://impeccable.style/) Oper
 - There is no product-name header and no persistent sidebar.
 - On launch, the app shows two feature entries: 设备 and 照片. Inside an area, a compact segmented control switches between them, and a back control returns to the home screen.
 - The circular icon button is a corner settings entry only. It holds the save location control, the camera network profile, and the camera address. It is not primary navigation.
-- In 设备, photographs on the camera are shown in a virtualized thumbnail grid. “Import selected” is the primary action. “Import all” is secondary. In 照片, a click or tap opens the large-image viewer rather than a selection for import.
+- In 设备, photographs on the camera are shown in a virtualized thumbnail grid. “Import selected” is the primary action. “Import all” is secondary. In 照片, a click or tap opens the photo detail page rather than a selection for import.
 - “Not yet connected” is not shown as an error before a connection has been attempted. A successful probe loads the photograph list automatically. Import progress, skips, conflicts, and errors are distinct.
 
 Visual tokens and component rules are in [DESIGN.md](../DESIGN.md).
@@ -194,7 +194,7 @@ The following is an implementation sequence, not a dated schedule.
 
 1. **M0 Documentation:** Product requirements and technical design.
 2. **M1 Library, connection, listing, and import:** Choose and persist the save location; save a camera network profile and later switch Wi-Fi automatically, then probe the camera; list photos; import selected or all files into that folder. Scope and acceptance criteria are in section 11. The interface follows the UX decisions in section 6.
-3. **M2 Local album browsing:** Browse thumbnails and large views of files already in the save location, including use without the camera.
+3. **M2 Local album browsing:** Browse thumbnails and a photo detail page of files already in the save location, including use without the camera.
 4. **M3 Culling:** 1 to 5 stars, picked and rejected flags, filters, and persistence in XMP sidecars and SQLite.
 5. **M4 RAW preview:** Embedded preview for local DNG. DNG in the camera list, and how version 1 meets the preview requirement if wireless transfer cannot deliver DNG, follow real-camera test results.
 
@@ -280,7 +280,7 @@ Milestone 2 covers local album browsing and the two-entry information architectu
 1. On launch, the app shows two feature entries: 设备 and 照片. The user can move between those areas with a compact segmented control, and can return to the home screen with a back control.
 2. 设备 lists saved camera profiles, keeps the automatic Wi-Fi switching and Keychain password flow from Milestone 1, and is the place to connect, browse, select, and import camera photographs.
 3. After an import finishes, the interface offers 查看照片, which opens 照片.
-4. 照片 lists photograph files that already sit in the single save location, shows a thumbnail grid and a large-image viewer, and remains usable with no camera connection. The listing is read-only and does not descend into subfolders.
+4. 照片 lists photograph files that already sit in the single save location, shows a thumbnail grid and a photo detail page, and remains usable with no camera connection. The listing is read-only and does not descend into subfolders.
 
 ### 12.2 Acceptance criteria
 
@@ -288,6 +288,6 @@ Milestone 2 covers local album browsing and the two-entry information architectu
 - 设备 can list saved profiles and connect from a chosen profile, then browse and import as in Milestone 1.
 - 照片 can be opened with no camera connection. If no save location is saved, the area asks the user to choose one.
 - The album grid shows files that sit directly in the save location, including JPEG and DNG names. Hidden files, `.partial` files, and non-photograph files are omitted.
-- Opening a photograph shows a large view. The user can close that view and can move to the previous or next photograph. A file that cannot be displayed shows an explanation, not an empty frame.
+- Opening a photograph enters a detail page. The user can return to the album grid with Back or Esc, and can move to the previous or next photograph. A file that cannot be displayed shows an explanation, not an empty frame.
 - Browsing does not modify original files in the save location.
 - After import, 查看照片 opens 照片 and shows the imported files.

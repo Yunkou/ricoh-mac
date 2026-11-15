@@ -141,6 +141,55 @@ export function PhotosToolbar(props: { model: AppModel }) {
   );
 }
 
+export function PhotoToolbar(props: { model: AppModel }) {
+  const model = props.model;
+  return (
+    <ToolbarFrame>
+      <Button
+        label={copy.backToAlbum}
+        kind="ghost"
+        testID="photo-back"
+        onPress={() => model.closePhoto()}
+      />
+      <AreaSwitch
+        area="photos"
+        onSelect={(next) => {
+          if (next === "devices") {
+            model.openDevices();
+            return;
+          }
+          void model.openPhotos();
+        }}
+      />
+      <Text
+        testID="viewer-name"
+        style={{
+          fontFamily: font.family,
+          color: color.text,
+          fontSize: type.emphasis,
+          lineHeight: type.lineEmphasis,
+          fontWeight: font.emphasis,
+          flex: 1,
+          numberOfLines: 1,
+          textOverflow: "ellipsis-middle",
+          minWidth: 0,
+        }}
+      >
+        {currentFileName(model)}
+      </Text>
+      <SettingsButton model={model} />
+    </ToolbarFrame>
+  );
+}
+
+function currentFileName(model: AppModel): string {
+  const id = model.viewingId();
+  if (!id) {
+    return "";
+  }
+  return model.albumPhotos().find((photo) => photo.id === id)?.file ?? id;
+}
+
 function chromeInsets() {
   const bar = titleBar();
   return {

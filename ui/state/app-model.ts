@@ -5,6 +5,7 @@ import type {
   ConnectResult,
   ImportProgress as ImportProgressEvent,
   LibraryPhoto,
+  PhotoDetails,
   WifiSettings,
 } from "ricoh-mac/native";
 import { copy } from "../copy";
@@ -36,8 +37,11 @@ const defaultWifiSettings: WifiSettings = {
   viaUtun: null,
 };
 
-export type MainArea = "home" | "devices" | "photos";
+export type MainArea = "home" | "devices" | "photos" | "photo";
 export type AlbumPhoto = LibraryPhoto;
+export type { PhotoDetails };
+
+export const infoPanelMinWidth = 900;
 
 export function createAppModel() {
   const libraryFolder = signal<string | null>(null);
@@ -65,6 +69,9 @@ export function createAppModel() {
   const albumPhotos = signal<AlbumPhoto[]>([]);
   const albumListing = signal(false);
   const viewingId = signal<string | null>(null);
+  const restorePhotoId = signal<string | null>(null);
+  const photoDetails = signal<PhotoDetails | null>(null);
+  let detailsToken = 0;
   const thumbLoader = createThumbLoader({
     concurrency: 4,
     load: (item) => Camera.loadThumbnail(item.folder, item.file),
@@ -338,7 +345,7 @@ export function createAppModel() {
   async function loadAlbum() {
     if (!libraryFolder()) {
       albumPhotos.set([]);
-      viewingId.set(null);
+      closePhoto();
       return;
     }
     albumListing.set(true);
@@ -348,11 +355,11 @@ export function createAppModel() {
       albumPhotos.set(items);
       const current = viewingId();
       if (current && !items.some((photo) => photo.id === current)) {
-        viewingId.set(null);
+        closePhoto();
       }
     } catch (err) {
       albumPhotos.set([]);
-      viewingId.set(null);
+      closePhoto();
       notice.set(`${copy.albumListFailed} ${String(err)}`);
     } finally {
       albumListing.set(false);
@@ -384,13 +391,59 @@ export function createAppModel() {
     await loadAlbum();
   }
 
-  function openAlbumPhoto(id: string) {
+  function showPhoto(id: string) {
     focusedId.set(id);
     viewingId.set(id);
+    photoDetails.set(null);
+    void loadPhotoDetails(id);
   }
 
-  function closeViewer() {
+  function openAlbumPhoto(id: string) {
+    mainArea.set("photo");
+    showDevices.set(false);
+    showPhotos.set(true);
+    settingsOpen.set(false);
+    showPhoto(id);
+  }
+
+  function closePhoto() {
+    const current = viewingId();
+    if (current) {
+      focusedId.set(current);
+      restorePhotoId.set(current);
+    }
     viewingId.set(null);
+    photoDetails.set(null);
+    if (mainArea() === "photo") {
+      mainArea.set("photos");
+      showDevices.set(false);
+      showPhotos.set(true);
+    }
+  }
+
+  function clearRestorePhoto() {
+    restorePhotoId.set(null);
+  }
+
+  async function loadPhotoDetails(id: string) {
+    const token = ++detailsToken;
+    const photo = albumPhotos().find((item) => item.id === id);
+    if (!photo) {
+      if (token === detailsToken) {
+        photoDetails.set(null);
+      }
+      return;
+    }
+    try {
+      const details = await Library.photoDetails(photo.path);
+      if (token === detailsToken && viewingId() === id) {
+        photoDetails.set(details);
+      }
+    } catch {
+      if (token === detailsToken && viewingId() === id) {
+        photoDetails.set(null);
+      }
+    }
   }
 
   function showAdjacentPhoto(delta: number) {
@@ -404,7 +457,7 @@ export function createAppModel() {
     if (index < 0 || next < 0 || next >= items.length) {
       return;
     }
-    viewingId.set(items[next].id);
+    showPhoto(items[next].id);
   }
 
   function showEdgePhoto(edge: "first" | "last") {
@@ -415,15 +468,11 @@ export function createAppModel() {
     if (items.length === 0) {
       return;
     }
-    viewingId.set(edge === "first" ? items[0].id : items[items.length - 1].id);
+    showPhoto(edge === "first" ? items[0].id : items[items.length - 1].id);
   }
 
-  function toggleViewer() {
-    if (viewingId()) {
-      closeViewer();
-      return;
-    }
-    if (mainArea() !== "photos") {
+  function openFocusedPhoto() {
+    if (mainArea() !== "photos" || viewingId()) {
       return;
     }
     const items = albumPhotos();
@@ -610,6 +659,8 @@ export function createAppModel() {
     albumPhotos,
     albumListing,
     viewingId,
+    restorePhotoId,
+    photoDetails,
     thumbLoader,
     isBusy,
     loadSettings,
@@ -625,10 +676,11 @@ export function createAppModel() {
     openPhotos,
     loadAlbum,
     openAlbumPhoto,
-    closeViewer,
+    closePhoto,
+    clearRestorePhoto,
     showAdjacentPhoto,
     showEdgePhoto,
-    toggleViewer,
+    openFocusedPhoto,
     saveProfileEdits,
     removeProfile,
     toggleAutoSwitchBack,

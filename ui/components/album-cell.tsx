@@ -1,4 +1,5 @@
 import { Image, Text, View } from "nsh";
+import type { Signal, ViewRef } from "nsh";
 import { copy } from "../copy";
 import type { AlbumPhoto } from "../state/app-model";
 import { color, focusRing, font, radius, space, type } from "../theme";
@@ -9,8 +10,10 @@ export function AlbumCell(props: {
   index: () => number;
   size: () => number;
   height: () => number;
+  restoreId?: Signal<string | null>;
   onPress: (index: number, id: string) => void;
   onFocus: (id: string) => void;
+  onRestored?: () => void;
 }) {
   const preview = () => props.item().previewUrl;
   return (
@@ -19,6 +22,7 @@ export function AlbumCell(props: {
       testID={`album-photo-${props.index()}`}
       accessibilityLabel={props.item().file}
       focusable={true}
+      ref={(node) => restoreFocus(node, props.item().id, props.restoreId?.(), props.onRestored)}
       onPress={() => props.onPress(props.index(), props.item().id)}
       onFocus={() => props.onFocus(props.item().id)}
       style={{
@@ -81,3 +85,17 @@ export function AlbumCell(props: {
     </View>
   );
 }
+
+function restoreFocus(
+  node: ViewRef | null,
+  id: string,
+  restoreId: string | null | undefined,
+  onRestored?: () => void,
+): void {
+  if (!node || !restoreId || restoreId !== id) {
+    return;
+  }
+  node.focus();
+  onRestored?.();
+}
+

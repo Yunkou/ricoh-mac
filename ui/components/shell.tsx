@@ -3,10 +3,10 @@ import type { Signal } from "nsh";
 import { ImportStrip } from "./import-strip";
 import { NoticeBanner } from "./notice-banner";
 import { SettingsPanel } from "./settings-panel";
-import { DevicesToolbar, HomeToolbar, PhotosToolbar } from "./toolbar";
+import { DevicesToolbar, HomeToolbar, PhotoToolbar, PhotosToolbar } from "./toolbar";
 import { DevicesWorkspace, PhotosWorkspace } from "./workspace";
 import { HomeScreen } from "./home-screen";
-import { PhotoViewerHost } from "./photo-viewer";
+import { PhotoDetail } from "./photo-detail";
 import type { AppModel } from "../state/app-model";
 
 export function Shell(props: { model: AppModel }) {
@@ -16,12 +16,13 @@ export function Shell(props: { model: AppModel }) {
       <HomeToolbarGate model={model} />
       <DevicesToolbarGate model={model} />
       <PhotosToolbarGate model={model} />
+      <PhotoToolbarGate model={model} />
       <DevicesImportGate model={model} />
       <NoticeBanner notice={model.notice} banner={model.banner} />
       <HomeGate model={model} />
       <DevicesGate model={model} />
       <PhotosGate model={model} />
-      <PhotoViewerHost model={model} />
+      <PhotoGate model={model} />
       <SettingsPanel model={model} />
     </>
   );
@@ -53,6 +54,16 @@ export function PhotosToolbarGate(props: { model: AppModel }) {
     <>
       {syncVisible(isPhotos(props.model), visible)}
       {visible() ? <PhotosToolbar model={props.model} /> : null}
+    </>
+  );
+}
+
+export function PhotoToolbarGate(props: { model: AppModel }) {
+  const visible = signal(false);
+  return (
+    <>
+      {syncVisible(isPhoto(props.model), visible)}
+      {visible() ? <PhotoToolbar model={props.model} /> : null}
     </>
   );
 }
@@ -102,16 +113,30 @@ export function PhotosGate(props: { model: AppModel }) {
   );
 }
 
+export function PhotoGate(props: { model: AppModel }) {
+  const visible = signal(false);
+  return (
+    <>
+      {syncVisible(isPhoto(props.model), visible)}
+      {visible() ? <PhotoDetail model={props.model} /> : null}
+    </>
+  );
+}
+
 function isHome(model: AppModel): boolean {
-  return !model.showDevices() && !model.showPhotos();
+  return model.mainArea() === "home";
 }
 
 function isDevices(model: AppModel): boolean {
-  return model.showDevices() && !model.showPhotos();
+  return model.mainArea() === "devices";
 }
 
 function isPhotos(model: AppModel): boolean {
-  return model.showPhotos();
+  return model.mainArea() === "photos";
+}
+
+function isPhoto(model: AppModel): boolean {
+  return model.mainArea() === "photo";
 }
 
 function syncVisible(show: boolean, visible: Signal<boolean>): null {

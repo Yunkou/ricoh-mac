@@ -137,13 +137,11 @@ JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/ele
 
 官方记录格式是 14-bit DNG，可与 JPEG 同时记录。见 [FAQ](https://www.ricoh-imaging.co.jp/english/support/qa/gr-3/index.html)。
 
-第一版对已经在本地的 DNG，推荐使用文件内嵌 JPEG 或 ImageIO 缩略图，而不是完整 demosaic 冲图。在 macOS 上可通过 ImageIO（可用 `objc2` 绑定调用 `CGImageSource` / `CGImageSourceCreateThumbnailAtIndex`）读取内嵌预览或生成缩略图，再交给界面显示。官方概念说明见 [Creating and Using Image Sources](https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/ImageIOGuide/imageio_source/ikpg_source.html)，API 见 [Image I/O](https://developer.apple.com/documentation/imageio)。
+详情页使用 [kamadak-exif](https://crates.io/crates/kamadak-exif) 0.6.2（BSD-2-Clause）读取标准 Exif。拍摄信息面板所需的 Ricoh MakerNote 字段（图像设定、对焦含 Snap、全按快门 Snap、裁切、ND 滤镜）由本 crate 中一小段专用解析读取。应用不捆绑 ExifTool，也不把元数据写回 JPEG 或 DNG。
 
-理由：选片需要的是及时、稳定的可视图，而不是最终颜色；内嵌预览通常已存在于相机 DNG 中，解码成本低，且不修改文件。完整 RAW 解码放入后续版本。
+对于已经在本地的 DNG，详情页用只读的 TIFF/DNG 解析提取内嵌 JPEG 预览，而不做完整 demosaic 冲图。提取出的 JPEG 可缓存在 `data_dir()/preview-cache`，不得写回 DNG。该文件的直方图根据预览计算，并标明来源。JPEG 直方图使用 `image` crate（仅启用 JPEG 能力）根据原图像素计算。不使用 `rawler`，以避免 LGPL-2.1 许可带来的义务。
 
-也可以探测把 DNG 路径直接交给 NSH `Image`。若运行时用 ImageIO 且恰好能显示，成本最低；但官方 Image 文档没有列出 DNG，行为需再验证。即便可行，也应对失败提供回退。
-
-预览结果可缓存在 `data_dir()`，不要写回 DNG。EXIF 方向是否总被应用，需再验证。`objc2` 与 ImageIO 在 NSH mixed 包中的链接方式、以及沙箱对本地文件读取的影响，将在实现时验证。
+理由：选片需要的是及时、稳定的可视图，而不是最终颜色；内嵌预览通常已存在于相机 DNG 中，解码成本低，且不修改文件。真正的传感器级 RAW 预览若在后续版本中加入，可在完成许可评估后考虑 ImageIO 或其他解码库，但不属于当前拍摄信息面板的范围。ImageIO 官方概念说明见 [Creating and Using Image Sources](https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/ImageIOGuide/imageio_source/ikpg_source.html)，API 见 [Image I/O](https://developer.apple.com/documentation/imageio)。
 
 **待真机验证：** 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项留在第 10.2 节，将在真机验证后决定。
 

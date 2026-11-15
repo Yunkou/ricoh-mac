@@ -1,5 +1,5 @@
 import { expect, open, test } from "nsh/test";
-import type { ConnectResult, ImportProgress, ImportReport, LibraryPhoto, PhotoItem, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
+import type { ConnectResult, ImportProgress, ImportReport, LibraryPhoto, PhotoDetails, PhotoItem, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
 import { applyRange, columnCount, selectAll, selectedCount, selectedIds, toggleId } from "./state/selection";
 
 const samplePhotos = [
@@ -30,6 +30,82 @@ const sampleAlbum: LibraryPhoto[] = [
   { id: "R0000002.DNG", file: "R0000002.DNG", size: 2400, path: "/tmp/ricoh-mac-test-library/R0000002.DNG", previewUrl: null },
   { id: "R0000003.JPG", file: "R0000003.JPG", size: 1300, path: "/tmp/ricoh-mac-test-library/R0000003.JPG", previewUrl: "file:///tmp/ricoh-mac-test-library/R0000003.JPG" },
 ];
+
+
+function albumDetails(photo: LibraryPhoto): PhotoDetails {
+  const dng = photo.file.toLowerCase().endsWith(".dng");
+  if (dng) {
+    return {
+      file: photo.file,
+      format: "dng",
+      size: photo.size ?? null,
+      width: null,
+      height: null,
+      aspectRatio: null,
+      colorSpace: null,
+      takenAt: null,
+      aperture: null,
+      shutter: null,
+      iso: null,
+      exposureCompensation: null,
+      exposureMode: null,
+      meteringMode: null,
+      cameraMake: null,
+      cameraModel: null,
+      lens: null,
+      focalLength: null,
+      focalLength35mm: null,
+      cropMode: null,
+      whiteBalance: null,
+      colorTemperature: null,
+      imageControl: null,
+      focusMode: null,
+      fullPressSnap: null,
+      ndFilter: null,
+      gps: null,
+      previewUrl: photo.previewUrl ?? null,
+      previewSource: photo.previewUrl ? "original" : null,
+      histogram: null,
+    };
+  }
+  return {
+    file: photo.file,
+    format: "jpeg",
+    size: photo.size ?? null,
+    width: 6000,
+    height: 4000,
+    aspectRatio: "3:2",
+    colorSpace: "srgb",
+    takenAt: "2026-11-15 20:30:00",
+    aperture: "F2.8",
+    shutter: "1/500",
+    iso: "400",
+    exposureCompensation: "+0.3",
+    exposureMode: "aperture",
+    meteringMode: "pattern",
+    cameraMake: "RICOH",
+    cameraModel: "RICOH GR IIIx",
+    lens: "18.3 mm F2.8",
+    focalLength: "18.3 mm",
+    focalLength35mm: "40 mm",
+    cropMode: "off",
+    whiteBalance: "auto",
+    colorTemperature: null,
+    imageControl: "positive_film",
+    focusMode: "snap",
+    fullPressSnap: "on",
+    ndFilter: "off",
+    gps: "31.2° N, 121.47° E",
+    previewUrl: photo.previewUrl ?? null,
+    previewSource: photo.previewUrl ? "original" : null,
+    histogram: {
+      red: new Array(256).fill(0).map((_, index) => (index > 200 ? 10 : 1)),
+      green: new Array(256).fill(1),
+      blue: new Array(256).fill(1),
+      source: "original",
+    },
+  };
+}
 
 const savedProfile: ProfileView = {
   id: "s1",
@@ -112,6 +188,7 @@ function modules(options?: {
   wifiSetAutoSwitchBack?: (value: boolean) => Promise<boolean> | boolean;
   wifiConnectProfile?: (id: string) => Promise<ConnectResult> | ConnectResult;
   libraryPhotos?: LibraryPhoto[] | (() => LibraryPhoto[]);
+  photoDetails?: (path: string) => Promise<PhotoDetails> | PhotoDetails;
 }) {
   const folder = options?.folder === undefined ? null : options.folder;
   const photos = options?.photos ?? samplePhotos;
@@ -136,6 +213,17 @@ function modules(options?: {
       "Library.setCameraBaseUrl": async (url: string) => url,
       "Library.resetCameraBaseUrl": async () => "http://192.168.0.1",
       "Library.listPhotos": async () => readLibraryPhotos(),
+      "Library.photoDetails": async (path: string) => {
+        if (options?.photoDetails) {
+          return options.photoDetails(path);
+        }
+        const listed = readLibraryPhotos();
+        const photo = listed.find((item) => item.path === path) ?? listed.find((item) => item.id === path.split("/").pop());
+        if (!photo) {
+          throw new Error("找不到这张照片。");
+        }
+        return albumDetails(photo);
+      },
       "Camera.probe": typeof probe === "function" ? probe : async () => probe,
       "Camera.listPhotos": async () => photos,
       "Camera.loadThumbnail": options?.loadThumbnail ?? (async () => null),
@@ -612,7 +700,7 @@ test("my photos lists imported files without a camera connection", async () => {
   expect(texts).toContain("R0000003.JPG");
   expect(app.shows("id:import-selected")).toBe(false);
   expect(app.shows("id:connect-camera")).toBe(false);
-  expect(app.shows("id:photo-viewer")).toBe(false);
+  expect(app.shows("id:photo-detail")).toBe(false);
   app.dispose();
 });
 
@@ -628,8 +716,9 @@ async function openFirstAlbumPhoto(moduleOverrides?: Parameters<typeof modules>[
   });
   await app.waitFor("id:album-photo-0");
   await app.press("id:album-photo-0");
-  await app.waitFor("id:photo-viewer");
+  await app.waitFor("id:photo-detail");
   await app.waitFor("id:viewer-photo-R0000001.JPG");
+  expect(app.shows("id:album-grid")).toBe(false);
   return app;
 }
 
@@ -652,8 +741,10 @@ test("opening an imported photo shows a large view and clicking next and previou
   expect(showsViewerPhoto(app, "R0000002.DNG")).toBe(false);
   expect(app.shows("id:viewer-image")).toBe(true);
   expect(app.texts()).toContain("1 / 3");
-  await app.press("id:viewer-close");
-  await app.waitUntil(() => !app.shows("id:photo-viewer"));
+  await app.press("id:photo-back");
+  await app.waitUntil(() => !app.shows("id:photo-detail"));
+  await app.waitFor("id:album-grid");
+  expect(app.shows("id:album-photo-0")).toBe(true);
   app.dispose();
 });
 
@@ -698,30 +789,47 @@ test("viewer Home and End keys jump to the first and last photos", async () => {
   app.dispose();
 });
 
-test("Space and Enter open the viewer from the grid and close it", async () => {
+test("Space and Enter open the detail page from the grid and do not close it", async () => {
   const app = await launchInPhotos({
     folder: "/tmp/ricoh-mac-test-library",
     libraryPhotos: sampleAlbum,
   });
   await app.waitFor("id:album-photo-0");
-  expect(app.shows("id:photo-viewer")).toBe(false);
+  expect(app.shows("id:photo-detail")).toBe(false);
   await app.keyboard.press("space");
-  await app.waitFor("id:photo-viewer");
+  await app.waitFor("id:photo-detail");
   expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(true);
+  expect(app.shows("id:album-grid")).toBe(false);
   await app.keyboard.press("space");
-  await app.waitUntil(() => !app.shows("id:photo-viewer"));
+  expect(app.shows("id:photo-detail")).toBe(true);
+  expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(true);
+  await app.keyboard.press("escape");
+  await app.waitUntil(() => !app.shows("id:photo-detail"));
+  await app.waitFor("id:album-grid");
   await app.keyboard.press("enter");
-  await app.waitFor("id:photo-viewer");
+  await app.waitFor("id:photo-detail");
   expect(showsViewerPhoto(app, "R0000001.JPG")).toBe(true);
   await app.keyboard.press("enter");
-  await app.waitUntil(() => !app.shows("id:photo-viewer"));
+  expect(app.shows("id:photo-detail")).toBe(true);
+  expect(app.shows("id:album-grid")).toBe(false);
   app.dispose();
 });
 
-test("Escape closes the large-image viewer", async () => {
+test("Escape and Back return to the album grid and restore the photo", async () => {
   const app = await openFirstAlbumPhoto();
+  await app.keyboard.press("right");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
   await app.keyboard.press("escape");
-  await app.waitUntil(() => !app.shows("id:photo-viewer"));
+  await app.waitUntil(() => !app.shows("id:photo-detail"));
+  await app.waitFor("id:album-grid");
+  expect(app.shows("id:album-photo-1")).toBe(true);
+  await app.keyboard.press("enter");
+  await app.waitFor("id:photo-detail");
+  expect(showsViewerPhoto(app, "R0000002.DNG")).toBe(true);
+  await app.press("id:photo-back");
+  await app.waitFor("id:album-grid");
+  expect(app.shows("id:photo-detail")).toBe(false);
+  expect(app.shows("id:album-photo-1")).toBe(true);
   app.dispose();
 });
 
@@ -738,30 +846,81 @@ test("F toggles fit and actual size in the viewer", async () => {
   app.dispose();
 });
 
-test("I shows and hides file information in the viewer", async () => {
+test("I shows and hides photographer information in the side panel", async () => {
   const app = await openFirstAlbumPhoto();
-  expect(app.shows("id:viewer-info")).toBe(false);
-  await app.keyboard.press("i");
   await app.waitFor("id:viewer-info");
-  expect(app.texts()).toContain("文件信息");
-  expect(app.texts().some((line) => line.includes("位置") && line.includes("/tmp/ricoh-mac-test-library/R0000001.JPG"))).toBe(true);
-  expect(app.texts().some((line) => line.includes("大小") && line.includes("1.2 KB"))).toBe(true);
+  const texts = app.texts();
+  expect(texts).toContain("拍摄参数");
+  expect(texts).toContain("F2.8");
+  expect(texts).toContain("1/500");
+  expect(texts).toContain("400");
+  expect(texts).toContain("光圈优先");
+  expect(texts).toContain("40 mm");
+  expect(texts).toContain("未裁切");
+  expect(texts).toContain("正片");
+  expect(texts).toContain("Snap");
+  expect(texts).toContain("2026年11月15日 20:30");
+  expect(texts.some((line) => line.includes("/tmp/ricoh-mac-test-library/R0000001.JPG"))).toBe(false);
+  expect(app.shows("id:photo-histogram")).toBe(true);
   await app.keyboard.press("i");
   await app.waitUntil(() => !app.shows("id:viewer-info"));
+  await app.keyboard.press("i");
+  await app.waitFor("id:viewer-info");
   app.dispose();
 });
 
 test("question mark and the help control toggle the shortcut list", async () => {
   const app = await openFirstAlbumPhoto();
   expect(app.shows("id:viewer-hint")).toBe(true);
-  expect(app.texts()).toContain("← → 切换  Esc 关闭  ? 快捷键");
+  expect(app.texts()).toContain("← → 切换  Esc 返回  ? 快捷键");
   expect(app.shows("id:viewer-shortcuts")).toBe(false);
   await app.keyboard.press("shift+/");
   await app.waitFor("id:viewer-shortcuts");
   expect(app.texts()).toContain("快捷键");
-  expect(app.texts().some((line) => line.includes("Esc") && line.includes("关闭"))).toBe(true);
+  expect(app.texts().some((line) => line.includes("Esc") && line.includes("返回相册"))).toBe(true);
   await app.press("id:viewer-help");
   await app.waitUntil(() => !app.shows("id:viewer-shortcuts"));
+  app.dispose();
+});
+
+test("switching to devices from the detail page leaves the photo page", async () => {
+  const app = await openFirstAlbumPhoto();
+  await app.waitFor("id:photo-detail");
+  await app.press("id:area-devices");
+  await app.waitUntil(() => !app.shows("id:photo-detail"));
+  expect(app.shows("id:album-grid")).toBe(false);
+  await app.waitFor("id:connect-camera");
+  app.dispose();
+});
+
+test("returning from a later photo keeps that cell available in a long album", async () => {
+  const libraryPhotos = Array.from({ length: 40 }, (_, index) => {
+    const file = `R${String(index + 1).padStart(7, "0")}.JPG`;
+    return {
+      id: file,
+      file,
+      size: 1200,
+      path: `/tmp/ricoh-mac-test-library/${file}`,
+      previewUrl: `file:///tmp/ricoh-mac-test-library/${file}`,
+    };
+  });
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos,
+  });
+  await app.waitFor("id:album-photo-0");
+  await app.press("id:album-photo-0");
+  await app.waitFor("id:photo-detail");
+  await app.keyboard.press("end");
+  await app.waitFor("id:viewer-photo-R0000040.JPG");
+  expect(app.texts()).toContain("40 / 40");
+  await app.keyboard.press("escape");
+  await app.waitFor("id:album-grid");
+  expect(app.shows("id:photo-detail")).toBe(false);
+  await app.waitFor("id:album-photo-39");
+  await app.keyboard.press("enter");
+  await app.waitFor("id:photo-detail");
+  expect(showsViewerPhoto(app, "R0000040.JPG")).toBe(true);
   app.dispose();
 });
 

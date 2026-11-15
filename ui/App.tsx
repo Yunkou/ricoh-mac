@@ -71,12 +71,12 @@ function bindKeys(model: AppModel) {
         model.onSelectAll();
       },
       escape: () => {
-        if (model.viewingId()) {
-          model.closeViewer();
-          return;
-        }
         if (model.settingsOpen()) {
           model.settingsOpen.set(false);
+          return;
+        }
+        if (model.mainArea() === "photo" || model.viewingId()) {
+          model.closePhoto();
           return;
         }
         if (model.mainArea() === "devices") {
@@ -113,8 +113,11 @@ function bindKeys(model: AppModel) {
         }
       },
       space: () => {
-        if (model.viewingId() || model.mainArea() === "photos") {
-          model.toggleViewer();
+        if (model.mainArea() === "photo") {
+          return;
+        }
+        if (model.mainArea() === "photos") {
+          model.openFocusedPhoto();
           return;
         }
         if (model.mainArea() !== "devices") {
@@ -131,8 +134,11 @@ function bindKeys(model: AppModel) {
         model.onPhotoPress(index, id);
       },
       enter: () => {
-        if (model.viewingId() || model.mainArea() === "photos") {
-          model.toggleViewer();
+        if (model.mainArea() === "photo") {
+          return;
+        }
+        if (model.mainArea() === "photos") {
+          model.openFocusedPhoto();
         }
       },
     },

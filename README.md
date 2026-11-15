@@ -35,7 +35,7 @@ The version 1 stack is [Native Shell](https://nsh.dev/) 0.5.x, mixed TSX and Rus
 
 On launch, the app shows two feature entries:
 
-- **照片 (Photos):** browses photographs already imported into the single save location. It works without a camera connection. The album is a thumbnail grid and a large-image viewer. The viewer provides previous and next controls, and keyboard shortcuts for navigation, opening and closing, fitting or actual size, and file information. A compact hint and a “?” list document those shortcuts. The app reads that folder and does not modify original files.
+- **照片 (Photos):** browses photographs already imported into the single save location. It works without a camera connection. The album is a thumbnail grid and a standalone photo detail page. Click a photograph, or press Space or Enter, to open the page. The detail page provides previous and next controls, fit-to-window or actual size, and a right-hand photographer information panel. Back or Esc returns to the album grid. A compact hint and a “?” list document those shortcuts. The app reads that folder and does not modify original files.
 - **设备 (Devices):** lists saved camera profiles, connects to the camera with automatic Wi-Fi switching (the password is stored in the macOS Keychain), then browses, selects, and imports photographs. After an import finishes, 查看照片 opens 照片.
 
 The window has no product-name header and no persistent sidebar. A compact segmented control switches between the two areas, and a back control returns to the home screen. The circular icon is a corner settings entry.

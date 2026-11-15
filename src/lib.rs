@@ -7,6 +7,7 @@ mod connect;
 mod error;
 mod importer;
 mod keychain;
+mod metadata;
 pub mod mock_camera;
 mod profile;
 mod wifi;
@@ -31,6 +32,7 @@ use importer::{
     FileImportStatus, ImportProgress as FileImportProgress, Importer, download_thumbnail,
 };
 use keychain::MacKeychain;
+use metadata::{PhotoDetails, inspect_photo, is_inside_library};
 use profile::{
     CameraProfile, ProfileStore, WifiSession, delete_profile, save_profile, set_active_profile,
     set_auto_switch_back,
@@ -130,6 +132,28 @@ impl Library {
                 preview_url: photo.previewable.then(|| file_url(&photo.path)),
             })
             .collect())
+    }
+
+    /// Read photographer information and a display preview for one library file.
+    ///
+    /// The original photograph is only read. An extracted DNG preview may be
+    /// cached under the application data directory.
+    pub async fn photo_details(path: String) -> Result<PhotoDetails, String> {
+        let folder = load_config()?
+            .library_folder
+            .ok_or_else(|| "请先选择保存位置。".to_string())?;
+        let library = PathBuf::from(folder);
+        let requested = PathBuf::from(path);
+        let cache = data_directory()?.join("preview-cache");
+        let details = blocking(move || {
+            if !is_inside_library(&library, &requested) {
+                return Err(AppError::msg("找不到这张照片。"));
+            }
+            inspect_photo(&requested, Some(&cache))
+        })
+        .await
+        .map_err(|err| err.to_string())??;
+        Ok(details)
     }
 }
 
