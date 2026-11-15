@@ -893,6 +893,20 @@ test("switching to devices from the detail page leaves the photo page", async ()
   app.dispose();
 });
 
+test("choosing Photos from the detail page returns to the album and restores the photo", async () => {
+  const app = await openFirstAlbumPhoto();
+  await app.keyboard.press("right");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  await app.press("id:area-photos");
+  await app.waitUntil(() => !app.shows("id:photo-detail"));
+  await app.waitFor("id:album-grid");
+  expect(app.shows("id:album-photo-1")).toBe(true);
+  await app.keyboard.press("enter");
+  await app.waitFor("id:photo-detail");
+  expect(showsViewerPhoto(app, "R0000002.DNG")).toBe(true);
+  app.dispose();
+});
+
 test("returning from a later photo keeps that cell available in a long album", async () => {
   const libraryPhotos = Array.from({ length: 40 }, (_, index) => {
     const file = `R${String(index + 1).padStart(7, "0")}.JPG`;

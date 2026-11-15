@@ -14,11 +14,11 @@ The application is a mixed NSH 0.5.1 project: TSX for the user interface and Rus
 
 ## Users
 
-The primary user is the owner of a Ricoh GR IIIx, using a Mac to import photographs over the camera’s Wi-Fi and later to cull them. Version 1 is for personal use. After a camera profile is saved, Connect Camera switches the Mac to the camera network automatically. While the Mac is on that network, Ethernet or iPhone USB tethering can keep internet access.
+The primary user is the owner of a Ricoh GR IIIx, using a Mac to import photographs over the camera’s Wi-Fi and to browse them in a local album. Version 1 is for personal use. After a camera profile is saved, Connect Camera switches the Mac to the camera network automatically. While the Mac is on that network, Ethernet or iPhone USB tethering can keep internet access.
 
 ## Product Purpose
 
-The application connects to a GR IIIx, switching to a saved camera Wi-Fi profile when one exists, lists photographs on the camera, and imports selected or all files into one local save location, keeping original file names. Later milestones add a local album, star and flag culling, and RAW / DNG preview. Success in the current milestone means the user can choose a save location, see a truthful connection state, browse camera photographs as a thumbnail grid, and import files without changing anything on the camera or overwriting complete local originals.
+The application connects to a GR IIIx, switching to a saved camera Wi-Fi profile when one exists, lists photographs on the camera, and imports selected or all files into one local save location, keeping original file names. The user can then browse those files in a local album, open a full-page photograph detail view, and read photographer information. Later milestones add star and flag culling, and a sensor-level RAW / DNG preview. Success in the current work means the user can choose a save location, see a truthful connection state, browse and import camera photographs, and review imported photographs in the album and on the detail page, without changing anything on the camera or overwriting complete local originals.
 
 ## Positioning
 
@@ -36,12 +36,19 @@ Confirmed in Milestone 1:
 - Connection uses read-only `GET /v1/ping` and `GET /v1/props`. A successful probe automatically loads the photograph list through `GET /v1/photos`. Thumbnails use `size=thumb` when the camera serves them, and are cached under the application data directory.
 - Import writes into the single save location, keeps original names, uses a `.partial` temporary file, skips name-and-size matches, reports same-name size conflicts without overwriting, and continues after a per-file error. The app does not delete, rename, or rewrite files on the camera.
 - The interface is fixed dark, uses concise Chinese copy, has no product-name header, and has no persistent sidebar. A circular icon in the corner opens settings only (save location, camera network profile, and camera address). Photographs occupy a virtualized thumbnail grid.
-- Primary import is “import selected.” “Import all” is secondary. Keyboard shortcuts for this milestone are Command-A (select all), Escape (clear selection or close settings), Command-Return (import selected), and Command-R (refresh the list). These shortcuts do not intercept text entry. Shift-click range selection uses NSH `PressEvent` modifiers.
+- Primary import is “import selected.” “Import all” is secondary. In 设备, the keyboard shortcuts are Command-A (select all), Escape (clear selection or close settings), Command-Return (import selected), and Command-R (refresh the camera list). These shortcuts do not intercept text entry. Shift-click range selection uses NSH `PressEvent` modifiers.
 - Version 1 switches Wi-Fi automatically using a saved camera profile. The password is stored in the macOS Keychain. Location Services may be requested once so the app can read the current network name; if permission is denied, the user types the name shown on the camera. Automatic switching falls back to manual-join guidance on failure. If a proxy is intercepting the camera network, the interface shows a hint.
 
-Out of scope for Milestone 1, and still planned for later milestones: local album browsing, 1 to 5 stars, picked and rejected flags, and RAW / DNG preview. AI-assisted culling, Developer ID signing, notarization, and installer distribution are outside version 1.
+Confirmed in Milestone 2:
 
-Undecided: keyboard shortcuts for stars and flags; the public application name and final bundle identifier; remaining camera HTTP details listed for hardware validation in the requirements document.
+- On launch, the app shows two feature entries, 照片 and 设备. A compact segmented control switches between those areas, and a back control returns to the home screen.
+- 照片 lists photograph files already in the single save location as a thumbnail grid, without a camera connection. Opening a photograph, with a click or with Space or Enter, enters a full-page detail view, not a popup. Back or Esc returns to the album grid and keeps that photograph visible. Previous, next, and the related shortcuts stay on the detail page.
+- The detail page has a right-hand photographer information panel (exposure first, then lens and crop, Image Control, Snap, ND, capture time, file information, color space, GPS when present, and a histogram). I shows or hides the panel. The panel omits missing fields and does not show the absolute file path.
+- JPEG files display in the grid and on the detail page. The album grid does not preview DNG files. When a DNG contains an embedded preview, the detail page can show that preview and labels it as a preview, not as original pixels. Histogram values taken from a preview are labeled as such. Original photographs are only read.
+
+Out of scope for the current milestones, and still planned for later milestones: 1 to 5 stars, picked and rejected flags, and a sensor-level RAW / DNG preview and histogram. AI-assisted culling, Developer ID signing, notarization, and installer distribution are outside version 1.
+
+Undecided: keyboard shortcuts for stars and flags; the public application name and final bundle identifier; whether the application should carry a LICENSE file; whether the icon accents should be more saturated; whether a later sensor-level DNG preview should use ImageIO or another decoder after a license review; remaining camera HTTP details listed for hardware validation in the requirements document.
 
 ## Brand Commitments
 

@@ -1,6 +1,6 @@
 # Photographer information on the detail page
 
-This document describes which information to show a photographer on the detail page, how those values are typically stored in GR IIIx JPEG and DNG files, and how far the app can go without decoding RAW pixels. Implementation has not started. The plan is based on public specifications, ExifTool's Ricoh tag documentation, and Rust crate documentation. The fields have not yet been checked one by one against real camera files.
+This document describes which information to show a photographer on the detail page, how those values are typically stored in GR IIIx JPEG and DNG files, and how far the app can go without decoding RAW pixels. The photographer panel described here is implemented. Standard Exif is read with kamadak-exif. Ricoh MakerNote fields are parsed by a small dedicated reader. The current mapping follows public specifications, ExifTool's Ricoh tag documentation, and synthetic fixtures. MakerNote layouts must be checked against real GR IIIx JPEG and DNG files before the displayed labels are treated as final.
 
 ## Information to show
 
@@ -88,29 +88,29 @@ Leave for later work:
 - A histogram computed from DNG sensor data
 - A waveform or RAW-level histogram that reflects linear RAW values
 
-Those items belong with a later RAW preview effort, not with the first phase of this information panel. Using rawler for a true RAW decode requires a decision on LGPL-2.1 first. macOS ImageIO, for embedded DNG previews or system-level decoding, is another path that avoids LGPL. Its feasibility is still listed as unverified in the technical documentation.
+Those items belong with a later RAW preview effort, not with the photographer information panel. The album grid still does not preview DNG files. Using rawler for a true RAW decode requires a decision on LGPL-2.1 first. macOS ImageIO, or another decoder, remains an option for a later sensor-level preview after a license review.
 
 ## Layout
 
 Put the information in a collapsible side panel on the right of the detail page. Do not keep the current lower-left floating card as the final layout. The panel is open by default when the window is wide enough, and collapses when the window is narrow, so it does not squeeze the photograph. `I` and the existing Info control continue to show or hide the panel.
 
-The panel uses a translucent surface, in line with the frosted-glass window. Each row is a short label and a value. The exposure group comes first, at a size that makes aperture, shutter, and ISO easy to read at a glance. The histogram sits below the exposure group. When there is no GPS, the row is omitted.
+The panel uses a translucent surface, in line with the frosted-glass window. Each row is a short label and a value. The exposure group comes first, at a size that makes aperture, shutter, and ISO easy to read at a glance. The implemented order then shows lens and crop, image settings, capture time and file information, GPS when present, and the histogram last. When there is no GPS, the row is omitted. The absolute file path is not shown.
 
 The shortcut list still opens with `?`. It does not share the photographer information panel.
 
-## Suggested phases
+## Phases
 
-1. Land the detail page first, and move the current file information into the right-hand panel. This phase still shows only file name, size, pixels, and path, and does not add a new crate.
-2. In the same phase, add kamadak-exif and a Ricoh MakerNote parser, and show the standard exposure fields, focal length, color space, date and time, and optional GPS, together with Image Control, focus (including Snap), crop, and ND. Do not wait for real GR IIIx samples before starting this work. When real JPEG and DNG files are available, confirm the MakerNote layouts against them before locking the labels. Crop on GR IIIx files must be labeled 50 mm and 71 mm. Do not reuse ExifTool's GR III CropMode labels of 35 mm and 47 mm.
-3. Add a histogram computed from original JPEG pixels. If DNG preview extraction is reliable, add a preview-based histogram for DNG and label its source.
-4. Leave RAW original preview and a sensor-data histogram to a later version, with a separate decision on the decoder and its license.
+1. The detail page is in place, and photographer information sits in the right-hand panel.
+2. kamadak-exif and a Ricoh MakerNote parser are in the same crate. The panel shows standard exposure fields, focal length, color space, date and time, and optional GPS, together with Image Control, focus (including Snap), crop, ND, and color temperature. Crop on GR IIIx files is labeled 40 mm when off, or 50 mm or 71 mm when cropped. It does not use ExifTool's GR III CropMode labels of 35 mm and 47 mm. MakerNote layouts must be checked against real GR IIIx JPEG and DNG files before the displayed labels are treated as final.
+3. A histogram is computed from original JPEG pixels. For a DNG with an extracted embedded preview, the histogram is computed from that preview and labeled as such.
+4. A RAW original preview and a sensor-data histogram remain for a later version, with a separate decision on the decoder and its license.
 
 ## Decisions already made
 
 Confirmed on 15 November 2026 (Asia/Shanghai): implement Ricoh MakerNotes (Image Control, Snap, crop, ND, and the other MakerNote fields listed above) in the same phase as standard Exif. Do not wait for real GR IIIx samples before starting that work. When real GR IIIx files are available, still confirm the MakerNote layouts against them. Do not reuse ExifTool's GR III CropMode labels (35 mm / 47 mm) for the IIIx (40 mm / 50 mm / 71 mm).
 
+The implementation uses kamadak-exif with a dedicated Ricoh MakerNote parser. The information panel does not show the absolute file path.
+
 ## Remaining decisions
 
-- Whether the first phase should use kamadak-exif, with a dedicated Ricoh MakerNote parser.
 - Whether a later true DNG pixel histogram should accept rawler's LGPL-2.1 license, or use a system API such as ImageIO.
-- Whether the absolute path still belongs in the information panel.

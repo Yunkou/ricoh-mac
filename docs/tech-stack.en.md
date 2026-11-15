@@ -112,7 +112,7 @@ Rules:
 - When the index and the folder disagree, the disk wins: a refresh inserts new files and drops missing paths, and it must not delete originals on disk. If a sidecar exists, a refresh should reconcile it with the index.
 - Thumbnail caches may live under `data_dir()`, keyed by content hash or by path plus modification time, and they can be rebuilt if lost.
 
-JPEG and PNG should be shown with NSH `Image` first. Official [Image](https://nsh.dev/elements/image.md) documentation says the source may be a URL, an asset, `data:`, or `blob:`, and that on desktop an absolute path or `file:` URL can load when `fs.read` covers it. Whether NSH `Image` decodes DNG itself is not documented and is to be validated. Do not inline huge files as unbounded base64.
+JPEG and PNG should be shown with NSH `Image` first. Official [Image](https://nsh.dev/elements/image.md) documentation says the source may be a URL, an asset, `data:`, or `blob:`, and that on desktop an absolute path or `file:` URL can load when `fs.read` covers it. The album grid does not pass DNG files to NSH `Image`. The photo detail page extracts an embedded JPEG preview from a local DNG, when one is present, and displays that JPEG. Do not inline huge files as unbounded base64.
 
 ---
 
@@ -137,7 +137,7 @@ The meaning of `xmp:Rating` follows Adobe's XMP documentation: the [XMP xmp name
 
 Official recording format is 14-bit DNG, and it can be saved together with JPEG. See the [FAQ](https://www.ricoh-imaging.co.jp/english/support/qa/gr-3/index.html).
 
-The photo detail page reads standard Exif with [kamadak-exif](https://crates.io/crates/kamadak-exif) 0.6.2 (BSD-2-Clause). Ricoh MakerNote fields used in the photographer panel (Image Control, focus including Snap, Full Press Snap, crop mode, and the ND filter) are parsed by a small dedicated reader in this crate. The app does not bundle ExifTool, and it does not write metadata back into JPEG or DNG files.
+The photo detail page reads standard Exif with [kamadak-exif](https://crates.io/crates/kamadak-exif) 0.6.2 (BSD-2-Clause). Ricoh MakerNote fields used in the photographer panel (Image Control, focus including Snap, Full Press Snap, crop mode, the ND filter, and color temperature) are parsed by a small dedicated reader in this crate. The current mapping follows public Ricoh tag descriptions and synthetic fixtures. Those MakerNote layouts must be checked against real GR IIIx JPEG and DNG files before the displayed labels are treated as final. The app does not bundle ExifTool, and it does not write metadata back into JPEG or DNG files. On a GR IIIx file, crop mode is labeled 40 mm when off, or 50 mm or 71 mm when cropped, and is never labeled with the GR III values 35 mm or 47 mm.
 
 For DNG files already on disk, the detail page extracts an embedded JPEG preview with a read-only TIFF/DNG parser, not a full demosaic render. The extracted JPEG may be cached under `data_dir()/preview-cache` and must not be written back into the DNG. A histogram for that file is computed from the preview and is labeled as such. JPEG histograms are computed from the original pixels with the `image` crate (JPEG feature only). `rawler` is not used, because of its LGPL-2.1 license.
 
@@ -195,10 +195,10 @@ Do not commit signing keys, notarization credentials, or `.secret` files.
 In addition to the camera items in section 9 of the requirements document:
 
 - If DNG cannot be transferred over Wi-Fi, whether version 1 should still meet the RAW preview requirement with DNG files already on disk (for example copied from a memory card into the target folder). This will be decided after hardware validation.
-- Whether NSH `Image` can display a local DNG, and how `file:` paths behave with and without `capabilities`.
 - The exact path returned by `data_dir()` for this app's bundle id.
 - Constraints on calling `data_dir()` or other environment APIs inside versus outside `blocking`.
-- ImageIO compatibility with GR IIIx DNG embedded previews, orientation, and `objc2` linking.
+- Ricoh MakerNote layouts and labels for Image Control, crop mode, Snap, the ND filter, and color temperature, checked against real GR IIIx JPEG and DNG files.
+- If a later sensor-level DNG preview is added, whether to use ImageIO or another decoder after a license review. `rawler` remains unused because of its LGPL-2.1 license.
 - Whether the camera supports HTTP Range resume.
 - XMP sidecar interchange with common tools, and the file-name pattern to use.
 - The ad hoc signature produced by `nsh package --target macos` on this machine, and whether that is enough to run the app locally (version 1 does not notarize).
@@ -258,13 +258,15 @@ The mixed app lives in the repository root:
 - `App.tsx` is the TSX entry required by Native Shell: it sits beside `nsh.json` and only mounts the app. The interface lives under `ui/`. `ui/App.tsx` composes the shell; `ui/components/` holds the views; `ui/state/` holds signals and flows; `ui/lib/` holds helpers such as the thumbnail loader. The app uses a fixed dark appearance and a warm amber accent, with no product-name header and no persistent sidebar. A circular corner button opens settings only. Photographs are shown in a virtualized thumbnail grid through `List` `numColumns`. Visual tokens live in `ui/theme.ts`, copy in `ui/copy.ts`, selection helpers in `ui/state/selection.ts`, and interface icons in `ui/assets/icons/` (Kubai Icons 0.9.0, MIT, vendored official color variant, with monochrome on-accent glyphs for primary buttons; see `ui/assets/icons/SOURCE.txt`). The design record is in `DESIGN.md` and `PRODUCT.md` at the repository root.
 - `src/lib.rs` exports Rust modules to TSX as `ricoh-mac/native`: `Library`, `Camera`, and `Wifi`.
 - `src/config.rs` stores the save location and camera base URL in `config.json` under `data_dir()`, written with a temporary file and an atomic rename.
+- `src/album.rs` lists photograph files that sit directly in the save location. The listing is read-only and does not mark DNG files as previewable in the album grid.
+- `src/metadata/` reads photographer information from JPEG and DNG files, parses a small set of Ricoh MakerNote fields, extracts an embedded DNG preview, and computes a histogram. Extracted previews may be cached under `data_dir()/preview-cache`. Original photographs are only read.
 - `src/camera.rs` is the read-only HTTP client: `GET /v1/ping`, `GET /v1/props`, `GET /v1/photos`, original-file download, and optional `size=thumb`. It does not issue POST or PUT requests. The default origin is `http://192.168.0.1` and can be changed in the UI for development.
 - `src/importer.rs` writes into the single save location, keeps original file names, uses a `.partial` temporary file, skips name-and-size matches, and reports same-name conflicts without overwriting.
 - `src/mock_camera.rs` and `src/bin/mock-camera.rs` provide a local HTTP fixture for tests and for UI work without a camera.
 
 Long-running HTTP and file work run inside `blocking()`. `data_dir()` is read in async module functions before that work starts. Folder picking uses `pick_paths(OpenDialog::folders())`.
 
-Tests: `nsh test` runs the Rust unit and fixture tests (ping, list, download, deduplication, partial-download recovery, camera offline) and headless UI tests. The UI tests replace `ricoh-mac/native` through `open` `modules`, and they cover first launch, automatic listing after a successful connection, selection, disabled import actions, and the progress summary. They do not read the user’s real save location or configuration. Those tests are not hardware validation.
+Tests: `nsh test` runs the Rust unit and fixture tests (ping, list, download, deduplication, partial-download recovery, camera offline, metadata formatting, MakerNote parsing, and DNG preview extraction) and headless UI tests. The UI tests replace `ricoh-mac/native` through `open` `modules`, and they cover first launch, automatic listing after a successful connection, selection, disabled import actions, the progress summary, album browsing, the photo detail page, and the photographer information panel. They do not read the user’s real save location or configuration. Those tests are not hardware validation, and they do not substitute for checking MakerNote fields against real GR IIIx files.
 
 Development commands:
 

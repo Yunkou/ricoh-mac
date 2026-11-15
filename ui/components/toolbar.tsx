@@ -158,7 +158,7 @@ export function PhotoToolbar(props: { model: AppModel }) {
             model.openDevices();
             return;
           }
-          void model.openPhotos();
+          model.closePhoto();
         }}
       />
       <Text

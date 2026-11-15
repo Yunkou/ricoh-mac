@@ -101,8 +101,8 @@ Public sources (to be validated on hardware): community clients commonly use `GE
 
 - 照片 is available from the home screen, from the in-app area switch, and from 查看照片 after an import. It does not require a camera connection or a network.
 - The user chooses the album root with the system folder dialog. That folder is also the single import target. The app lists photograph files that sit directly in that folder. It does not descend into subfolders, and it must not scan the system Photos library or other unauthorized paths.
-- The interface shows a virtualized thumbnail grid and a photo detail page. After opening a photo, the user can return to the grid with Back or Esc and can move to the previous or next photo in the same folder.
-- A file that cannot be decoded, including a DNG or other RAW file for which this interface has no raster preview, shows an explanation, not an empty frame.
+- The interface shows a virtualized thumbnail grid and a photo detail page. A click, Space, or Enter opens the detail page from the grid. After opening a photo, the user can return to the grid with Back or Esc and can move to the previous or next photo in the same folder. The detail page presents photographer information in a side panel.
+- JPEG files display in the grid and on the detail page. The album grid does not preview DNG files. When a DNG contains an embedded preview, the detail page can show that preview and labels it as a preview, not as original pixels. A file that cannot be displayed shows an explanation, not an empty frame.
 - Browsing is read-only. The app must not create, rewrite, move, or delete original files in the save location.
 - After a refresh or after entering 照片 again, files added later inside the agreed scan scope should appear.
 
@@ -127,7 +127,7 @@ Public sources (to be validated on hardware): community clients commonly use `GE
 
 **Acceptance criteria:**
 
-- For a local DNG, the app can show a preview. Version 1 should use an embedded JPEG preview, not a full demosaic render. The rationale is in the technical design.
+- For a local DNG, the detail page can show an embedded JPEG preview when one is present, not a full demosaic render. The album grid does not yet preview DNG files. The rationale is in the technical design.
 - If a DNG has no usable preview, the UI says that it cannot be previewed and still shows basic information such as the file name.
 - A failed preview must not damage or rewrite that DNG.
 - Thumbnails for DNG files in the camera list depend on what the wireless interface actually returns, and are to be validated on hardware.
@@ -194,9 +194,9 @@ The following is an implementation sequence, not a dated schedule.
 
 1. **M0 Documentation:** Product requirements and technical design.
 2. **M1 Library, connection, listing, and import:** Choose and persist the save location; save a camera network profile and later switch Wi-Fi automatically, then probe the camera; list photos; import selected or all files into that folder. Scope and acceptance criteria are in section 11. The interface follows the UX decisions in section 6.
-3. **M2 Local album browsing:** Browse thumbnails and a photo detail page of files already in the save location, including use without the camera.
+3. **M2 Local album browsing:** Browse thumbnails and a photo detail page of files already in the save location, including use without the camera. This milestone includes the photographer information panel and an embedded DNG preview on the detail page. The album grid still does not preview DNG files.
 4. **M3 Culling:** 1 to 5 stars, picked and rejected flags, filters, and persistence in XMP sidecars and SQLite.
-5. **M4 RAW preview:** Embedded preview for local DNG. DNG in the camera list, and how version 1 meets the preview requirement if wireless transfer cannot deliver DNG, follow real-camera test results.
+5. **M4 RAW preview:** DNG thumbnails in the album grid, and a later sensor-level RAW preview and histogram. DNG in the camera list, and how version 1 meets the preview requirement if wireless transfer cannot deliver DNG, follow real-camera test results.
 
 AI-assisted culling and Bluetooth wake go to later-version candidates.
 
@@ -273,7 +273,7 @@ Ratings, flags, RAW develop, and distribution are outside Milestone 1.
 
 ## 12. Milestone 2
 
-Milestone 2 covers local album browsing and the two-entry information architecture. Stars, flags, filtering, and an improved RAW preview remain outside this milestone.
+Milestone 2 covers local album browsing, the two-entry information architecture, the photo detail page, the photographer information panel, and an embedded DNG preview on the detail page. Stars, flags, filtering, album-grid DNG thumbnails, and a sensor-level RAW preview remain outside this milestone.
 
 ### 12.1 Scope
 
@@ -288,6 +288,6 @@ Milestone 2 covers local album browsing and the two-entry information architectu
 - 设备 can list saved profiles and connect from a chosen profile, then browse and import as in Milestone 1.
 - 照片 can be opened with no camera connection. If no save location is saved, the area asks the user to choose one.
 - The album grid shows files that sit directly in the save location, including JPEG and DNG names. Hidden files, `.partial` files, and non-photograph files are omitted.
-- Opening a photograph enters a detail page. The user can return to the album grid with Back or Esc, and can move to the previous or next photograph. A file that cannot be displayed shows an explanation, not an empty frame.
+- Opening a photograph enters a detail page. The user can return to the album grid with Back or Esc, and can move to the previous or next photograph. The detail page shows photographer information. JPEG files display in the grid and on the detail page. The album grid does not preview DNG files; when a DNG contains an embedded preview, the detail page can show it and labels it as a preview. A file that cannot be displayed shows an explanation, not an empty frame.
 - Browsing does not modify original files in the save location.
 - After import, 查看照片 opens 照片 and shows the imported files.

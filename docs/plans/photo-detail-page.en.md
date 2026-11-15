@@ -1,8 +1,8 @@
 # Photo detail page
 
-This document describes how to replace the large-image overlay with a standalone detail page. Implementation has not started.
+This document records the navigation model for replacing the large-image overlay with a standalone detail page, and the implementation that followed it.
 
-## Current state
+## State before the change
 
 The local album is a thumbnail grid in `ui/components/album-grid.tsx`, backed by an NSH `List`. Clicking a cell calls `openAlbumPhoto`, which sets `viewingId` to that file name.
 
@@ -12,7 +12,7 @@ The current large view already has previous and next, fit-to-window and 1:1, a f
 
 The app does not use an NSH navigation stack. Home, Devices, and Photos are switched through `mainArea` and gate components.
 
-## Suggested navigation model
+## Navigation model
 
 Treat the open photograph as a page at the same level as the grid, not as a modal overlay.
 
@@ -55,8 +55,10 @@ Rust unit tests do not need a wider scope for this navigation change. After impl
 
 ## Decisions already made
 
-Confirmed on 15 November 2026 (Asia/Shanghai): `Space` and `Enter` open the detail page from the album grid, and no longer close the page once it is open. The only ways to leave are Back and `Esc`.
+Confirmed on 15 November 2026 (Asia/Shanghai): `Space` and `Enter` open the detail page from the album grid, and no longer close the page once it is open. The only ways to leave are Back and `Esc`. This version opens the detail page only from the Photos album.
 
-## Remaining decisions
+## Implementation
 
-- Whether this version is limited to opening the detail page from the local album only.
+The detail page is a `mainArea` of `"photo"`. `PhotoViewerHost` has been removed. Opening a photograph from the album grid, with a click, Space, or Enter, enters the page. Back or Esc returns to the album grid and restores that photograph by identifier, using `List` `initialScrollIndex` and `scrollToIndex`, then focuses the cell. Previous, next, and the related shortcuts stay on the page. Choosing 照片 on the area switch from the detail page returns to the album grid in the same way. Switching to 设备 closes the page and opens 设备. The Devices grid does not open the detail page.
+
+Headless tests cover opening and closing the page, previous and next, the keyboard shortcuts, returning to the restored cell, and choosing 照片 or 设备 from the area switch. Whether the top controls collide with the window buttons, and how scroll restoration looks in a real window, must be confirmed in the running interface.

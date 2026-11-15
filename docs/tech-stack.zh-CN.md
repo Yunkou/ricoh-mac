@@ -112,7 +112,7 @@ HTTP Range 是否被相机支持，需在真机上验证。若不支持，续传
 - 当索引与目录不一致时，以磁盘为准：刷新会补入新文件、移除已不存在的路径，但不得删除磁盘上的原片。sidecar 若存在，刷新时应与索引对账。
 - 缩略图缓存可以放在 `data_dir()` 下，按内容哈希或路径加修改时间索引，缓存丢失时可以重建。
 
-JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/elements/image.md) 说明源可以是 URL、资源、`data:` 或 `blob:`；并写明在桌面上，绝对路径或 `file:` URL 在 `fs.read` 覆盖该路径时可以加载。NSH `Image` 是否直接解码 DNG，文档未写明，需再验证。不要对巨大文件做无界的 base64 内联。
+JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/elements/image.md) 说明源可以是 URL、资源、`data:` 或 `blob:`；并写明在桌面上，绝对路径或 `file:` URL 在 `fs.read` 覆盖该路径时可以加载。相册网格不把 DNG 交给 NSH `Image`。照片详情页在本地 DNG 含有内嵌 JPEG 预览时提取该预览并显示。不要对巨大文件做无界的 base64 内联。
 
 ---
 
@@ -137,7 +137,7 @@ JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/ele
 
 官方记录格式是 14-bit DNG，可与 JPEG 同时记录。见 [FAQ](https://www.ricoh-imaging.co.jp/english/support/qa/gr-3/index.html)。
 
-详情页使用 [kamadak-exif](https://crates.io/crates/kamadak-exif) 0.6.2（BSD-2-Clause）读取标准 Exif。拍摄信息面板所需的 Ricoh MakerNote 字段（图像设定、对焦含 Snap、全按快门 Snap、裁切、ND 滤镜）由本 crate 中一小段专用解析读取。应用不捆绑 ExifTool，也不把元数据写回 JPEG 或 DNG。
+详情页使用 [kamadak-exif](https://crates.io/crates/kamadak-exif) 0.6.2（BSD-2-Clause）读取标准 Exif。拍摄信息面板所需的 Ricoh MakerNote 字段（图像设定、对焦含 Snap、全按快门 Snap、裁切、ND 滤镜和色温）由本 crate 中一小段专用解析读取。当前映射依据公开的 Ricoh 标签说明和合成夹具。这些 MakerNote 布局须对照实拍的 GR IIIx JPEG 与 DNG 核对后，再把界面文案视为最终结果。应用不捆绑 ExifTool，也不把元数据写回 JPEG 或 DNG。在 GR IIIx 文件上，未裁切显示为 40 mm，裁切显示为 50 mm 或 71 mm，不得使用 GR III 的 35 mm 或 47 mm 标签。
 
 对于已经在本地的 DNG，详情页用只读的 TIFF/DNG 解析提取内嵌 JPEG 预览，而不做完整 demosaic 冲图。提取出的 JPEG 可缓存在 `data_dir()/preview-cache`，不得写回 DNG。该文件的直方图根据预览计算，并标明来源。JPEG 直方图使用 `image` crate（仅启用 JPEG 能力）根据原图像素计算。不使用 `rawler`，以避免 LGPL-2.1 许可带来的义务。
 
@@ -195,10 +195,10 @@ nsh run --target macos
 除需求文档第 9 节列出的相机事项外，还包括：
 
 - 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项将在真机验证后决定。
-- NSH `Image` 是否直接显示本地 DNG；`file:` 路径在有无 `capabilities` 时的行为。
 - `data_dir()` 在本应用 bundle id 下的精确路径。
 - `blocking` 内外调用 `data_dir()` 或其他环境 API 的约束。
-- ImageIO 对 GR IIIx DNG 内嵌预览的兼容性、方向，以及 `objc2` 链接。
+- Ricoh MakerNote 中图像设定、裁切、Snap、ND 滤镜和色温的布局与文案，须对照实拍的 GR IIIx JPEG 与 DNG 核对。
+- 若以后加入传感器级 DNG 预览，是在完成许可评估后采用 ImageIO 还是其他解码库。由于 LGPL-2.1 许可，目前不使用 `rawler`。
 - 相机是否支持 HTTP Range 续传。
 - XMP sidecar 与常用软件的互操作，以及应采用的文件名形态。
 - `nsh package --target macos` 在本机的 ad hoc 签名结果，以及该包在本机运行是否足够（第一版不做公证）。
@@ -258,13 +258,15 @@ mixed 应用放在仓库根目录：
 - `App.tsx` 是 Native Shell 约定的 TSX 入口：它与 `nsh.json` 同级，只负责挂载应用。界面代码在 `ui/` 中。`ui/App.tsx` 负责组合外壳；`ui/components/` 存放视图；`ui/state/` 存放信号与流程；`ui/lib/` 存放缩略图加载器等辅助模块。应用采用固定深色和暖琥珀强调色，不放产品名大标题，也没有常驻侧栏。角落的圆形按钮只打开设置。照片以 `List` 的 `numColumns` 做成虚拟化缩略图网格。视觉 token 在 `ui/theme.ts`，文案在 `ui/copy.ts`，选择逻辑在 `ui/state/selection.ts`，界面图标在 `ui/assets/icons/`（Kubai Icons 0.9.0，MIT 许可，已固化的官方 color 变体，主按钮使用单色 on-accent 图形；见 `ui/assets/icons/SOURCE.txt`）。设计说明见仓库根目录的 `DESIGN.zh-CN.md` 与 `PRODUCT.zh-CN.md`。
 - `src/lib.rs` 向 TSX 导出 Rust 模块，说明符为 `ricoh-mac/native`：`Library`、`Camera` 与 `Wifi`。
 - `src/config.rs` 把保存位置和相机源地址保存在 `data_dir()` 下的 `config.json` 中，先写临时文件再原子改名。
+- `src/album.rs` 列出保存位置下的照片文件。该列表为只读，并且不把 DNG 标为可在相册网格中预览。
+- `src/metadata/` 从 JPEG 和 DNG 读取拍摄信息，解析一小部分 Ricoh MakerNote 字段，提取 DNG 内嵌预览，并计算直方图。提取出的预览可缓存在 `data_dir()/preview-cache`。原片只被读取。
 - `src/camera.rs` 是只读 HTTP 客户端：`GET /v1/ping`、`GET /v1/props`、`GET /v1/photos`、原文件下载，以及可选的 `size=thumb`。不发送 POST 或 PUT。默认源地址是 `http://192.168.0.1`，可在界面中改为开发地址。
 - `src/importer.rs` 把文件写入同一个保存位置，保留原始文件名，使用 `.partial` 临时文件，跳过名称与大小都相同的文件，并在同名冲突时报告且不覆盖。
 - `src/mock_camera.rs` 与 `src/bin/mock-camera.rs` 提供本地 HTTP 夹具，用于测试，以及在没有相机时调试界面。
 
 耗时的 HTTP 与文件操作在 `blocking()` 中执行。`data_dir()` 在异步模块函数中、在进入这些工作之前读取。选择文件夹使用 `pick_paths(OpenDialog::folders())`。
 
-测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态和进度摘要，不读取用户的真实保存位置或配置。这些测试不能代替真机验证。
+测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达、元数据格式化、MakerNote 解析和 DNG 预览提取），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态、进度摘要、相册浏览、照片详情页和拍摄信息面板，不读取用户的真实保存位置或配置。这些测试不能代替真机验证，也不能代替用实拍 GR IIIx 文件核对 MakerNote 字段。
 
 开发命令：
 
