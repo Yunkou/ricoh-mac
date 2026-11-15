@@ -375,15 +375,15 @@ mod tests {
     use crate::camera::CameraClient;
     use crate::importer::{FileImportStatus, Importer};
     use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
+    use std::sync::atomic::{AtomicU64, Ordering};
 
     fn unique_dir() -> std::path::PathBuf {
-        let nanos = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos();
-        let dir =
-            std::env::temp_dir().join(format!("ricoh-mac-import-{}-{}", std::process::id(), nanos));
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let dir = std::env::temp_dir().join(format!(
+            "ricoh-mac-import-{}-{}",
+            std::process::id(),
+            SEQ.fetch_add(1, Ordering::Relaxed),
+        ));
         fs::create_dir_all(&dir).expect("create test library directory");
         dir
     }
