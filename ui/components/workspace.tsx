@@ -2,6 +2,7 @@ import { Text, View } from "nsh";
 import { copy } from "../copy";
 import type { AppModel } from "../state/app-model";
 import { color, font, space, type } from "../theme";
+import { AlbumFilterBar } from "./album-filter";
 import { AlbumGrid } from "./album-grid";
 import { Button } from "./button";
 import { ConnectPanel, FirstRun } from "./empty-state";
@@ -35,16 +36,45 @@ export function PhotosWorkspace(props: { model: AppModel }) {
         <FirstRun model={model} />
       ) : model.albumPhotos().length === 0 ? (
         <AlbumEmpty model={model} />
+      ) : model.visibleAlbumPhotos().length === 0 ? (
+        <View style={{ flex: 1, minHeight: 0 }}>
+          <AlbumFilterBar model={model} />
+          <View
+            testID="album-filter-empty"
+            style={{
+              flex: 1,
+              alignItems: "center",
+              justifyContent: "center",
+              padding: space.xl,
+            }}
+          >
+            <Text
+              style={{
+                fontFamily: font.family,
+                color: color.secondary,
+                fontSize: type.body,
+                lineHeight: type.lineBody,
+              }}
+            >
+              {copy.albumFilterEmpty}
+            </Text>
+          </View>
+        </View>
       ) : (
-        <AlbumGrid
-          photos={model.albumPhotos}
-          thumbs={model.albumThumbs}
-          restoreId={model.restorePhotoId}
-          loader={model.albumThumbLoader}
-          onPhotoPress={(_index, id) => model.openAlbumPhoto(id)}
-          onFocusPhoto={(id) => model.focusedId.set(id)}
-          onRestored={() => model.clearRestorePhoto()}
-        />
+        <View style={{ flex: 1, minHeight: 0 }}>
+          <AlbumFilterBar model={model} />
+          <AlbumGrid
+            photos={model.visibleAlbumPhotos}
+            thumbs={model.albumThumbs}
+            restoreId={model.restorePhotoId}
+            loader={model.albumThumbLoader}
+            onPhotoPress={(_index, id) => model.openAlbumPhoto(id)}
+            onFocusPhoto={(id) => model.focusedId.set(id)}
+            onRate={(id, rating) => model.ratePhoto(rating, id)}
+            onFlag={(id, flag) => model.flagPhoto(flag, id)}
+            onRestored={() => model.clearRestorePhoto()}
+          />
+        </View>
       )}
     </>
   );

@@ -2,7 +2,9 @@ import { Image, Text, View } from "nsh";
 import type { Signal, ViewRef } from "nsh";
 import { copy } from "../copy";
 import type { AlbumPhoto } from "../state/app-model";
+import type { CullFlag } from "../state/cull";
 import { color, focusRing, font, radius, space, type } from "../theme";
+import { CullControls } from "./cull-controls";
 import { Icon } from "./icon";
 
 export function AlbumCell(props: {
@@ -14,6 +16,8 @@ export function AlbumCell(props: {
   restoreId?: Signal<string | null>;
   onPress: (index: number, id: string) => void;
   onFocus: (id: string) => void;
+  onRate: (id: string, rating: number) => void;
+  onFlag: (id: string, flag: CullFlag) => void;
   onRestored?: () => void;
 }) {
   return (
@@ -89,6 +93,12 @@ export function AlbumCell(props: {
       >
         {props.item().file}
       </Text>
+      <CullControls
+        photo={props.item}
+        variant="compact"
+        onRate={(rating) => props.onRate(props.item().id, rating)}
+        onFlag={(flag) => props.onFlag(props.item().id, flag)}
+      />
     </View>
   );
 }

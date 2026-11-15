@@ -73,7 +73,7 @@ export const grid = {
   minCell: 136,
   minColumns: 1,
   maxColumns: 8,
-  caption: 22,
+  caption: 54,
 } as const;
 
 export const motion = {

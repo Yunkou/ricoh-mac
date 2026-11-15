@@ -27,6 +27,15 @@ import {
   type ImportPhase,
   type PressModifiers,
 } from "./connection";
+import {
+  filterAlbumPhotos,
+  nextFlag,
+  nextRating,
+  normalizeFlag,
+  normalizeRating,
+  type AlbumFilter,
+  type CullFlag,
+} from "./cull";
 
 const defaultWifiSettings: WifiSettings = {
   profile: null,
@@ -79,6 +88,8 @@ export function createAppModel() {
       thumbs.set(mergeThumb(thumbs(), id, path));
     },
   });
+  const albumFilter = signal<AlbumFilter>({ kind: "all" });
+  const visibleAlbumPhotos = signal<AlbumPhoto[]>([]);
   const albumThumbs = signal<Record<string, string>>({});
   const albumThumbLoader = createThumbLoader({
     concurrency: 4,
@@ -350,9 +361,27 @@ export function createAppModel() {
     }
   }
 
+  function refreshVisiblePhotos(keepId?: string | null) {
+    const next = filterAlbumPhotos(albumPhotos(), albumFilter(), keepId);
+    const current = visibleAlbumPhotos();
+    if (
+      current.length === next.length &&
+      current.every(
+        (photo, index) =>
+          photo.id === next[index]?.id &&
+          photo.rating === next[index]?.rating &&
+          photo.flag === next[index]?.flag,
+      )
+    ) {
+      return;
+    }
+    visibleAlbumPhotos.set(next);
+  }
+
   function applyAlbumList(items: AlbumPhoto[]) {
     albumThumbLoader.reset();
     albumPhotos.set(items);
+    refreshVisiblePhotos(restorePhotoId());
     const cached: Record<string, string> = {};
     const pending: ThumbRequest[] = [];
     for (const photo of items) {
@@ -376,6 +405,7 @@ export function createAppModel() {
     albumThumbLoader.reset();
     albumThumbs.set({});
     albumPhotos.set([]);
+    visibleAlbumPhotos.set([]);
   }
 
   async function loadAlbum() {
@@ -387,12 +417,14 @@ export function createAppModel() {
     albumListing.set(true);
     notice.set("");
     try {
-      const items = await Library.listPhotos();
+      const listing = await Library.listPhotos();
+      const items = Array.isArray(listing) ? listing : listing.photos;
       applyAlbumList(items);
       const current = viewingId();
       if (current && !items.some((photo) => photo.id === current)) {
         closePhoto();
       }
+      notice.set(Array.isArray(listing) ? "" : (listing.warning ?? ""));
     } catch (err) {
       clearAlbum();
       closePhoto();
@@ -450,6 +482,7 @@ export function createAppModel() {
     }
     viewingId.set(null);
     photoDetails.set(null);
+    refreshVisiblePhotos(current);
     if (mainArea() === "photo") {
       mainArea.set("photos");
       showDevices.set(false);
@@ -487,7 +520,7 @@ export function createAppModel() {
     if (!current) {
       return;
     }
-    const items = albumPhotos();
+    const items = visibleAlbumPhotos();
     const index = items.findIndex((photo) => photo.id === current);
     const next = index + delta;
     if (index < 0 || next < 0 || next >= items.length) {
@@ -500,7 +533,7 @@ export function createAppModel() {
     if (!viewingId()) {
       return;
     }
-    const items = albumPhotos();
+    const items = visibleAlbumPhotos();
     if (items.length === 0) {
       return;
     }
@@ -511,13 +544,89 @@ export function createAppModel() {
     if (mainArea() !== "photos" || viewingId()) {
       return;
     }
-    const items = albumPhotos();
+    const items = visibleAlbumPhotos();
     if (items.length === 0) {
       return;
     }
     const focus = focusedId();
     const target = focus && items.some((photo) => photo.id === focus) ? focus : items[0].id;
     openAlbumPhoto(target);
+  }
+
+  function cullTargetId() {
+    if (mainArea() !== "photos" && mainArea() !== "photo") {
+      return null;
+    }
+    if (viewingId()) {
+      return viewingId();
+    }
+    const focus = focusedId();
+    if (focus && albumPhotos().some((photo) => photo.id === focus)) {
+      return focus;
+    }
+    return null;
+  }
+
+  function currentMarks(id: string) {
+    const photo = albumPhotos().find((item) => item.id === id);
+    return {
+      rating: normalizeRating(photo?.rating),
+      flag: normalizeFlag(photo?.flag ?? "none"),
+    };
+  }
+
+  function applyLocalMarks(id: string, rating: number, flag: CullFlag) {
+    albumPhotos.set(
+      albumPhotos().map((photo) =>
+        photo.id === id
+          ? { ...photo, rating, flag, marksError: null }
+          : photo,
+      ),
+    );
+    refreshVisiblePhotos(viewingId() ?? restorePhotoId());
+  }
+
+  async function writeMarks(id: string, rating: number, flag: CullFlag) {
+    const photo = albumPhotos().find((item) => item.id === id);
+    if (!photo) {
+      return;
+    }
+    try {
+      const saved = await Library.setPhotoMarks(photo.path, rating, flag);
+      applyLocalMarks(id, normalizeRating(saved.rating), normalizeFlag(saved.flag));
+      if (notice().startsWith(copy.cullFailed)) {
+        notice.set("");
+      }
+    } catch (err) {
+      notice.set(`${copy.cullFailed} ${String(err)}`);
+    }
+  }
+
+  function setAlbumFilter(filter: AlbumFilter) {
+    albumFilter.set(filter);
+    refreshVisiblePhotos(viewingId() ?? restorePhotoId());
+  }
+
+  function ratePhoto(rating: number, id?: string | null) {
+    const target = id ?? cullTargetId();
+    if (!target) {
+      return;
+    }
+    const marks = currentMarks(target);
+    void writeMarks(target, nextRating(marks.rating, rating), marks.flag);
+  }
+
+  function flagPhoto(flag: CullFlag, id?: string | null) {
+    const target = id ?? cullTargetId();
+    if (!target) {
+      return;
+    }
+    const marks = currentMarks(target);
+    void writeMarks(target, marks.rating, nextFlag(marks.flag, flag));
+  }
+
+  function clearPhotoFlag(id?: string | null) {
+    flagPhoto("none", id);
   }
 
   async function connectProfile(id: string) {
@@ -693,6 +802,8 @@ export function createAppModel() {
     listing,
     mainArea,
     albumPhotos,
+    visibleAlbumPhotos,
+    albumFilter,
     albumThumbs,
     albumListing,
     viewingId,
@@ -719,6 +830,11 @@ export function createAppModel() {
     showAdjacentPhoto,
     showEdgePhoto,
     openFocusedPhoto,
+    setAlbumFilter,
+    ratePhoto,
+    flagPhoto,
+    clearPhotoFlag,
+    cullTargetId,
     saveProfileEdits,
     removeProfile,
     toggleAutoSwitchBack,

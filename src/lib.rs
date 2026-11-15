@@ -4,6 +4,7 @@ mod album;
 mod camera;
 mod config;
 mod connect;
+mod cull;
 mod error;
 mod importer;
 mod keychain;
@@ -112,36 +113,96 @@ impl Library {
 
     /// List photographs already imported into the library folder.
     ///
-    /// The listing is read-only. It does not create, rewrite, move, or delete
-    /// files, and it does not descend into subfolders. DNG files are not opened
-    /// during listing. A cached embedded preview is included when one already
-    /// exists.
-    pub async fn list_photos() -> Result<Vec<LibraryPhoto>, String> {
+    /// The listing is read-only with respect to original photographs. It does
+    /// not create, rewrite, move, or delete JPEG or DNG files, and it does not
+    /// descend into subfolders. DNG files are not opened during listing. A
+    /// cached embedded preview is included when one already exists. Ratings and
+    /// flags are read from XMP sidecars, or from the rebuildable SQLite index
+    /// when a sidecar is missing.
+    pub async fn list_photos() -> Result<LibraryListing, String> {
         let folder = load_config()?
             .library_folder
             .ok_or_else(|| "请先选择保存位置。".to_string())?;
         let path = PathBuf::from(folder);
         let cache = data_directory().ok().map(|dir| dir.join("preview-cache"));
-        let listed = blocking(move || list_imported_photos(&path))
-            .await
-            .map_err(|err| err.to_string())??;
-        Ok(listed
-            .into_iter()
-            .map(|photo| LibraryPhoto {
-                preview_url: if photo.previewable {
-                    Some(file_url(&photo.path))
-                } else {
-                    cache.as_ref().and_then(|dir| {
-                        metadata::cached_preview_file(&photo.path, dir)
-                            .map(|cached| file_url(&cached))
-                    })
-                },
-                id: photo.file.clone(),
-                file: photo.file,
-                size: photo.size.map(|value| value as f64),
-                path: photo.path.display().to_string(),
-            })
-            .collect())
+        let data_dir = data_directory().ok();
+        let (listed, marks, errors, index_error) = blocking(move || {
+            let listed = list_imported_photos(&path)?;
+            let files: Vec<String> = listed.iter().map(|photo| photo.file.clone()).collect();
+            let (marks, errors, index_error) = match &data_dir {
+                Some(dir) => crate::cull::load_library_marks(&path, dir, &files),
+                None => (
+                    Default::default(),
+                    Vec::new(),
+                    Some("无法打开选片索引。".to_string()),
+                ),
+            };
+            Ok::<_, AppError>((listed, marks, errors, index_error))
+        })
+        .await
+        .map_err(|err| err.to_string())??;
+        Ok(LibraryListing {
+            photos: listed
+                .into_iter()
+                .map(|photo| {
+                    let file = photo.file.clone();
+                    let marks = marks.get(&file).copied().unwrap_or_default();
+                    let marks_error = errors
+                        .iter()
+                        .find(|entry| {
+                            entry.starts_with(&file) && entry[file.len()..].starts_with('：')
+                        })
+                        .cloned();
+                    LibraryPhoto {
+                        preview_url: if photo.previewable {
+                            Some(file_url(&photo.path))
+                        } else {
+                            cache.as_ref().and_then(|dir| {
+                                metadata::cached_preview_file(&photo.path, dir)
+                                    .map(|cached| file_url(&cached))
+                            })
+                        },
+                        id: photo.file.clone(),
+                        file: photo.file,
+                        size: photo.size.map(|value| value as f64),
+                        path: photo.path.display().to_string(),
+                        rating: marks.rating.value() as f64,
+                        flag: marks.flag.as_str().to_string(),
+                        marks_error,
+                    }
+                })
+                .collect(),
+            warning: listing_warning(errors, index_error),
+        })
+    }
+
+    /// Write a rating and flag to the photograph's canonical XMP sidecar, then
+    /// mirror them into the local SQLite index. The original photograph is not
+    /// written. A failed sidecar write does not update the index and is
+    /// returned as an error.
+    pub async fn set_photo_marks(
+        path: String,
+        rating: f64,
+        flag: String,
+    ) -> Result<PhotoMarks, String> {
+        if !rating.is_finite() || rating.fract() != 0.0 || !(0.0..=5.0).contains(&rating) {
+            return Err("星级必须是 0 到 5。".to_string());
+        }
+        let marks = crate::cull::Marks::new(rating as u8, crate::cull::Flag::parse(&flag)?)?;
+        let folder = load_config()?
+            .library_folder
+            .ok_or_else(|| "请先选择保存位置。".to_string())?;
+        let library = PathBuf::from(folder);
+        let requested = PathBuf::from(path);
+        let data = data_directory()?;
+        let saved =
+            blocking(move || crate::cull::set_library_marks(&library, &data, &requested, marks))
+                .await
+                .map_err(|err| err.to_string())??;
+        Ok(PhotoMarks {
+            rating: saved.rating.value() as f64,
+            flag: saved.flag.as_str().to_string(),
+        })
     }
 
     /// Read photographer information and a display preview for one library file.
@@ -196,6 +257,43 @@ pub struct LibraryPhoto {
     pub path: String,
     /// `file:` URL for a raster original, or for a cached DNG embedded preview when one already exists.
     pub preview_url: Option<String>,
+    /// Star rating from 0 (unrated) to 5.
+    pub rating: f64,
+    /// `none`, `picked`, or `rejected`.
+    pub flag: String,
+    /// A sidecar read error for this file, when one occurred.
+    pub marks_error: Option<String>,
+}
+
+/// Imported photographs plus any sidecar or index warning.
+#[derive(Debug, Clone, JsObject)]
+pub struct LibraryListing {
+    /// Photograph files sitting directly in the library folder.
+    pub photos: Vec<LibraryPhoto>,
+    /// Sidecar or index problems discovered while listing. Listing itself still
+    /// succeeds, and original photographs are not rewritten.
+    pub warning: Option<String>,
+}
+
+/// Rating and flag written for one photograph.
+#[derive(Debug, Clone, JsObject)]
+pub struct PhotoMarks {
+    /// Star rating from 0 (unrated) to 5.
+    pub rating: f64,
+    /// `none`, `picked`, or `rejected`.
+    pub flag: String,
+}
+
+fn listing_warning(errors: Vec<String>, index_error: Option<String>) -> Option<String> {
+    let mut parts = errors;
+    if let Some(error) = index_error {
+        parts.push(error);
+    }
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join("\n"))
+    }
 }
 
 /// Connection status returned to the UI.

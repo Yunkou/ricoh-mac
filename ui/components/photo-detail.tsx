@@ -5,6 +5,7 @@ import { transitionMs } from "../lib/motion";
 import { infoPanelMinWidth, type AlbumPhoto, type AppModel, type PhotoDetails } from "../state/app-model";
 import { color, font, motion, space, type } from "../theme";
 import { Button } from "./button";
+import { CullControls } from "./cull-controls";
 import { FadeEnter } from "./fade-enter";
 import { Icon } from "./icon";
 import { PhotoInfoPanel } from "./photo-info";
@@ -20,7 +21,7 @@ export function PhotoDetail(props: { model: AppModel }) {
   keymap.bind(
     {
       f: () => {
-        if (previewUrl(model.albumPhotos(), model.viewingId(), model.photoDetails())) {
+        if (previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails())) {
           actualSize.set(!actualSize());
         }
       },
@@ -63,7 +64,7 @@ export function PhotoDetail(props: { model: AppModel }) {
               position: "relative",
             }}
           >
-            {previewUrl(model.albumPhotos(), model.viewingId(), model.photoDetails()) ? (
+            {previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails()) ? (
               actualSize() ? (
                 <Scroll
                   testID="viewer-actual-mode"
@@ -78,8 +79,8 @@ export function PhotoDetail(props: { model: AppModel }) {
                 >
                   <Image
                     testID="viewer-image"
-                    src={previewUrl(model.albumPhotos(), model.viewingId(), model.photoDetails()) ?? ""}
-                    accessibilityLabel={photoFile(model.albumPhotos(), model.viewingId())}
+                    src={previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails()) ?? ""}
+                    accessibilityLabel={photoFile(model.visibleAlbumPhotos(), model.viewingId())}
                     onLoad={(event) => naturalSize.set(event.size)}
                     style={previewStyle(true, naturalSize())}
                   />
@@ -88,8 +89,8 @@ export function PhotoDetail(props: { model: AppModel }) {
                 <View testID="viewer-fit-mode" style={{ width: "100%", height: "100%" }}>
                   <Image
                     testID="viewer-image"
-                    src={previewUrl(model.albumPhotos(), model.viewingId(), model.photoDetails()) ?? ""}
-                    accessibilityLabel={photoFile(model.albumPhotos(), model.viewingId())}
+                    src={previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails()) ?? ""}
+                    accessibilityLabel={photoFile(model.visibleAlbumPhotos(), model.viewingId())}
                     onLoad={(event) => naturalSize.set(event.size)}
                     style={previewStyle(false, naturalSize())}
                   />
@@ -133,7 +134,7 @@ export function PhotoDetail(props: { model: AppModel }) {
               </View>
             )}
             {model.photoDetails()?.previewSource === "preview" &&
-            previewUrl(model.albumPhotos(), model.viewingId(), model.photoDetails()) ? (
+            previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails()) ? (
               <Text
                 testID="viewer-preview-source"
                 style={{
@@ -183,9 +184,25 @@ export function PhotoDetail(props: { model: AppModel }) {
                 <Text style={metaTextStyle()}>{`F    ${copy.shortcutFit}`}</Text>
                 <Text style={metaTextStyle()}>{`I    ${copy.shortcutInfo}`}</Text>
                 <Text style={metaTextStyle()}>{`?    ${copy.shortcutHelp}`}</Text>
+                <Text style={metaTextStyle()}>{`0–5    ${copy.shortcutRate}`}</Text>
+                <Text style={metaTextStyle()}>{`P    ${copy.shortcutPick}`}</Text>
+                <Text style={metaTextStyle()}>{`X    ${copy.shortcutReject}`}</Text>
+                <Text style={metaTextStyle()}>{`U    ${copy.shortcutUnflag}`}</Text>
               </View>
             ) : null}
           </View>
+          {currentPhoto(model.albumPhotos(), model.viewingId()) ? (
+            <CullControls
+              photo={() =>
+                currentPhoto(model.albumPhotos(), model.viewingId()) ??
+                currentPhoto(model.visibleAlbumPhotos(), model.viewingId()) ??
+                model.albumPhotos()[0]
+              }
+              variant="detail"
+              onRate={(rating) => model.ratePhoto(rating, model.viewingId())}
+              onFlag={(flag) => model.flagPhoto(flag, model.viewingId())}
+            />
+          ) : null}
           <View
             style={{
               flexDirection: "row",
@@ -198,7 +215,7 @@ export function PhotoDetail(props: { model: AppModel }) {
               label={copy.previousPhoto}
               kind="secondary"
               testID="viewer-prev"
-              disabled={!hasPrev(model.albumPhotos(), model.viewingId())}
+              disabled={!hasPrev(model.visibleAlbumPhotos(), model.viewingId())}
               onPress={() => model.showAdjacentPhoto(-1)}
             />
             <Text
@@ -211,13 +228,13 @@ export function PhotoDetail(props: { model: AppModel }) {
                 fontVariant: font.tabularNums,
               }}
             >
-              {photoIndexLabel(model.albumPhotos(), model.viewingId())}
+              {photoIndexLabel(model.visibleAlbumPhotos(), model.viewingId())}
             </Text>
             <Button
               label={copy.nextPhoto}
               kind="secondary"
               testID="viewer-next"
-              disabled={!hasNext(model.albumPhotos(), model.viewingId())}
+              disabled={!hasNext(model.visibleAlbumPhotos(), model.viewingId())}
               onPress={() => model.showAdjacentPhoto(1)}
             />
           </View>
@@ -248,9 +265,9 @@ export function PhotoDetail(props: { model: AppModel }) {
                 label={actualSize() ? copy.actualSize : copy.fitToWindow}
                 kind="ghost"
                 testID="viewer-fit"
-                disabled={!previewUrl(model.albumPhotos(), model.viewingId(), model.photoDetails())}
+                disabled={!previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails())}
                 onPress={() => {
-                  if (previewUrl(model.albumPhotos(), model.viewingId(), model.photoDetails())) {
+                  if (previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails())) {
                     actualSize.set(!actualSize());
                   }
                 }}

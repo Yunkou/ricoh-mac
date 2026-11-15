@@ -116,7 +116,7 @@ Public sources (to be validated on hardware): community clients commonly use `GE
 
 - Each photo can have a rating from 1 to 5 stars, or remain unrated.
 - The app supports two flags: picked and rejected. A photo may have no flag, or one of the two flags. Picked and rejected are mutually exclusive.
-- Stars and flags can be applied with the keyboard or the pointer without breaking the browsing rhythm. Exact keyboard shortcuts are recorded under Open Questions.
+- Stars and flags can be applied with the keyboard or the pointer without breaking the browsing rhythm. In Photos and on the detail page, when a photograph is focused or viewed and text is not being edited, `0`–`5` set the rating (`0` clears it; pressing the same star again also clears it), `P` toggles picked, `X` toggles rejected, and `U` clears the flag only.
 - The list can be filtered by star rating or flag.
 - Ratings and flags persist: they are written to an XMP sidecar next to the photo and mirrored into a local SQLite index for filtering. Version 1 must not write this data to the camera, and must not rewrite pixel bytes of imported originals. Storage details are in the technical design.
 - After a flag is cleared or a star rating changes, the filtered list updates at once, and the sidecar and the index stay in sync.
@@ -204,7 +204,7 @@ AI-assisted culling and Bluetooth wake go to later-version candidates.
 
 ## 8. Open questions
 
-1. What keyboard shortcuts should apply stars and flags? Milestone 1 already defines the import and selection shortcuts: Command-A selects all, Escape clears the selection or closes settings, Command-Return imports the selection, and Command-R refreshes the list.
+1. What keyboard shortcuts should apply stars and flags? Decided, and recorded in section 4.4: in Photos and on the detail page, when a photograph is focused or viewed and text is not being edited, `0`–`5` set the rating (`0` clears it; pressing the same star again also clears it), `P` toggles picked, `X` toggles rejected, and `U` clears the flag only. These do not replace the Milestone 1 import and selection shortcuts: Command-A selects all, Escape clears the selection or closes settings, Command-Return imports the selection, and Command-R refreshes the list.
 2. What public name, and what bundle id for personal use, should the app use? The current development identifier is `com.yunkou.ricoh-mac`. It is not the final identity.
 
 ---

@@ -122,14 +122,15 @@ JPEG and PNG should be shown with NSH `Image` first. Official [Image](https://ns
 
 Rules:
 
-- Write a sidecar next to the imported file (align the file-name pattern with common tools during implementation, for example `R0001234.xmp` or `R0001234.DNG.xmp`), using standard fields such as `xmp:Rating`. Represent picked and rejected with explicit sidecar fields, which will be chosen and documented during implementation.
-- Mirror the same data into SQLite for list filtering and sorting.
+- Write a canonical sidecar next to the imported file, named `{file_name}.xmp` including the extension, for example `R0001234.JPG.xmp` or `R0001234.DNG.xmp`. A JPEG and a DNG that share a stem therefore have two sidecars, and a write must not overwrite the other photograph's marks. A `{stem}.xmp` file such as `R0001234.xmp` is read only when no sibling in the folder shares that stem. Writes always go to the canonical path and leave `{stem}.xmp` untouched.
+- Store the star rating in `xmp:Rating` with values 0 to 5, following Adobe's [XMP xmp namespace](https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/). A value of `-1` (Adobe's rejected rating) is read as unrated and is not written, so the rejected flag stays independent of the stars. Store the flag as `ricohMac:Flag` (`picked` or `rejected`) in the namespace `http://ns.yunkou.ricoh-mac/1.0/`. Omit the attribute when the flag is none. Unknown XMP fields and namespaces are preserved by an event-passthrough rewrite (`xml` 1.4.0, MIT). Documents that contain `<!DOCTYPE>` or `<!ENTITY>` are rejected, and path elements that would traverse are rejected.
+- Write the sidecar atomically: a hidden `.name.{pid}.partial` file in the same folder is renamed into place. If an existing sidecar is corrupt, leave it unchanged and return an error. Permission and disk failures are returned as errors; the UI must not present those as a successful save.
+- Mirror the same data into a rebuildable SQLite index at `data_dir()/cull-index.sqlite` (`rusqlite` 0.43.0 with bundled SQLite, MIT), keyed by the canonical library path and file name, for list filtering and sorting. The sidecar is the source of truth. If a sidecar is missing, a previous index row may be shown. Listing does not create sidecars. If the sidecar write fails, the index is left unchanged. If the sidecar write succeeds and the index then fails, the error is still returned so a later load can rebuild the index.
 - Do not change JPEG or DNG pixels, and do not write into metadata packets inside those original files.
 - Do not write sidecars onto the camera, and do not send ratings back over Wi-Fi.
-- When a rating or flag changes, update the sidecar and the index together. If a sidecar is missing, the app may temporarily use the index and, when it is safe, offer to rebuild the sidecar.
 - The "database only" option was not chosen, because other tools would not see the marks, and the marks would vanish if only the data directory were lost. Writing XMP or EXIF inside the image file was not chosen, because it would rewrite original bytes.
 
-The meaning of `xmp:Rating` follows Adobe's XMP documentation: the [XMP xmp namespace](https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/). Round-trip compatibility with Lightroom or other tools, and the sidecar file-name pattern, are to be validated.
+Round-trip compatibility of this sidecar shape with Lightroom or other tools is still to be validated against those tools.
 
 ---
 
@@ -200,7 +201,7 @@ In addition to the camera items in section 9 of the requirements document:
 - Ricoh MakerNote layouts and labels for Image Control, crop mode, Snap, the ND filter, and color temperature, checked against real GR IIIx JPEG and DNG files.
 - If a later sensor-level DNG preview is added, whether to use ImageIO or another decoder after a license review. `rawler` remains unused because of its LGPL-2.1 license.
 - Whether the camera supports HTTP Range resume.
-- XMP sidecar interchange with common tools, and the file-name pattern to use.
+- XMP sidecar interchange with common tools, using the canonical `{file_name}.xmp` pattern already chosen.
 - The ad hoc signature produced by `nsh package --target macos` on this machine, and whether that is enough to run the app locally (version 1 does not notarize).
 
 ---

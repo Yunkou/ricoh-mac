@@ -18,7 +18,7 @@ The primary user is the owner of a Ricoh GR IIIx, using a Mac to import photogra
 
 ## Product Purpose
 
-The application connects to a GR IIIx, switching to a saved camera Wi-Fi profile when one exists, lists photographs on the camera, and imports selected or all files into one local save location, keeping original file names. The user can then browse those files in a local album, open a full-page photograph detail view, and read photographer information. Later milestones add star and flag culling, and a sensor-level RAW / DNG preview. Success in the current work means the user can choose a save location, see a truthful connection state, browse and import camera photographs, and review imported photographs in the album and on the detail page, without changing anything on the camera or overwriting complete local originals.
+The application connects to a GR IIIx, switching to a saved camera Wi-Fi profile when one exists, lists photographs on the camera, and imports selected or all files into one local save location, keeping original file names. The user can then browse those files in a local album, open a full-page photograph detail view, and read photographer information. The local album supports 1 to 5 stars, plus picked and rejected flags, persisted next to the photograph and in a local index. A later milestone adds a sensor-level RAW / DNG preview. Success in the current work means the user can choose a save location, see a truthful connection state, browse and import camera photographs, review imported photographs in the album and on the detail page, and star or flag those photographs, without changing anything on the camera or overwriting complete local originals.
 
 ## Positioning
 
@@ -46,9 +46,16 @@ Confirmed in Milestone 2:
 - The detail page has a right-hand photographer information panel (exposure first, then lens and crop, Image Control, Snap, ND, capture time, file information, color space, GPS when present, and a histogram). I shows or hides the panel. The panel omits missing fields and does not show the absolute file path.
 - JPEG files display in the grid and on the detail page. When a DNG contains an embedded JPEG preview, the album grid and the detail page can show that preview. The detail page labels it as a preview, not as original pixels. A file without a usable preview uses a placeholder in the grid and an explanation on the detail page. Histogram values taken from a preview are labeled as such. Original photographs are only read. The album grid does not decode sensor-level RAW data.
 
-Out of scope for the current milestones, and still planned for later milestones: 1 to 5 stars, picked and rejected flags, and a sensor-level RAW / DNG preview and histogram. AI-assisted culling, Developer ID signing, notarization, and installer distribution are outside version 1.
+Milestone 3:
 
-Undecided: keyboard shortcuts for stars and flags; the public application name and final bundle identifier; whether the application should carry a LICENSE file; whether the icon accents should be more saturated; whether a later sensor-level DNG preview should use ImageIO or another decoder after a license review; remaining camera HTTP details listed for hardware validation in the requirements document.
+- Each imported photograph can have a rating of 1 to 5 stars, or remain unrated, and a single flag: picked, rejected, or none. Picked and rejected are mutually exclusive; the star rating is independent of the flag.
+- The album grid and the photo detail page show the same marks, and both offer pointer editing. The album can be filtered by flag or by star rating.
+- In Photos and on the detail page, when a photograph is focused or viewed and text is not being edited, `0`–`5` set the rating (`0` clears it; pressing the same star again also clears it), `P` toggles picked, `X` toggles rejected, and `U` clears the flag only.
+- Marks persist in an XMP sidecar next to the photograph and in a local SQLite index. Original JPEG and DNG bytes are not rewritten, and marks are not written back to the camera.
+
+Out of scope for the current milestones, and still planned for later milestones: a sensor-level RAW / DNG preview and histogram. AI-assisted culling, Developer ID signing, notarization, and installer distribution are outside version 1.
+
+Undecided: the public application name and final bundle identifier; whether the application should carry a LICENSE file; whether the icon accents should be more saturated; whether a later sensor-level DNG preview should use ImageIO or another decoder after a license review; remaining camera HTTP details listed for hardware validation in the requirements document.
 
 ## Brand Commitments
 

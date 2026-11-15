@@ -122,14 +122,15 @@ JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/ele
 
 具体约定：
 
-- 在导入文件旁写入 sidecar（实现时按常见工具对齐文件名形态，例如 `R0001234.xmp` 或 `R0001234.DNG.xmp`），使用标准字段如 `xmp:Rating`；已选与排除用明确的 sidecar 字段表示，字段名将在实现时选定并写入文档。
-- 同一数据镜像到 SQLite，供列表筛选与排序。
+- 在导入文件旁写入规范 sidecar，文件名为 `{file_name}.xmp`（含扩展名），例如 `R0001234.JPG.xmp` 或 `R0001234.DNG.xmp`。共享同一词干的 JPEG 与 DNG 因此各有一份 sidecar，写入时不得覆盖另一张照片的评分。仅当文件夹中没有共享同一词干的其他照片时，才读取 `{stem}.xmp`（如 `R0001234.xmp`）。写入始终使用规范路径，并保持 `{stem}.xmp` 不动。
+- 星级存为 `xmp:Rating`，取值为 0 到 5，语义以 Adobe 的 [XMP xmp namespace](https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/) 为准。读到 `-1`（Adobe 用来表示排除的取值）时视为未评级，且不会写出 `-1`，使排除标记与星级保持独立。标记存为 `ricohMac:Flag`（`picked` 或 `rejected`），命名空间为 `http://ns.yunkou.ricoh-mac/1.0/`；无标记时省略该属性。通过事件透传改写（`xml` 1.4.0，MIT）保留未知的 XMP 字段和命名空间。包含 `<!DOCTYPE>` 或 `<!ENTITY>` 的文档会被拒绝，路径中的穿越成分也会被拒绝。
+- sidecar 采用原子写入：先在同一目录写入隐藏的 `.name.{pid}.partial`，再重命名到位。已有 sidecar 损坏时不改写该文件，并返回错误。权限或磁盘失败也返回错误；界面不得把这些情况显示为保存成功。
+- 同一数据镜像到可重建的 SQLite 索引 `data_dir()/cull-index.sqlite`（`rusqlite` 0.43.0，捆绑 SQLite，MIT），以规范的保存位置路径和文件名为键，供列表筛选与排序。sidecar 是权威来源。若 sidecar 缺失，可以显示此前索引中的记录。列表过程不会创建 sidecar。若 sidecar 写入失败，索引保持不变。若 sidecar 写入成功而随后索引失败，仍返回错误，以便下次载入时重建索引。
 - 不改 JPEG 或 DNG 的像素，也不写入这些原片内部的元数据包。
 - 相机上的文件不写 sidecar，也不通过无线回写评分。
-- 改星级或标记时，sidecar 与索引必须一起更新。若sidecar 丢失，应用仍可暂用索引工作，并在安全的前提下提示重建 sidecar。
 - 未采用「只存在应用数据库」的方案，以免其他工具看不到标记，也避免只丢数据目录时标记全部消失。未采用「写入图像文件内部」的方案，因为它会改写原片字节。
 
-`xmp:Rating` 的语义以 Adobe XMP 文档为准，见 [XMP xmp namespace](https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/)。与 Lightroom 或其他工具的往返兼容性，以及 sidecar 文件名形态，需再验证。
+与 Lightroom 或其他工具就这一 sidecar 形态的往返兼容性，仍需对照那些工具再验证。
 
 ---
 
@@ -200,7 +201,7 @@ nsh run --target macos
 - Ricoh MakerNote 中图像设定、裁切、Snap、ND 滤镜和色温的布局与文案，须对照实拍的 GR IIIx JPEG 与 DNG 核对。
 - 若以后加入传感器级 DNG 预览，是在完成许可评估后采用 ImageIO 还是其他解码库。由于 LGPL-2.1 许可，目前不使用 `rawler`。
 - 相机是否支持 HTTP Range 续传。
-- XMP sidecar 与常用软件的互操作，以及应采用的文件名形态。
+- XMP sidecar 与常用软件的互操作；文件名形态已定为规范的 `{file_name}.xmp`。
 - `nsh package --target macos` 在本机的 ad hoc 签名结果，以及该包在本机运行是否足够（第一版不做公证）。
 
 ---

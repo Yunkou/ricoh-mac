@@ -16,6 +16,8 @@ security-framework = "3"
 thiserror = "2"
 exif = { version = "0.6", package = "kamadak-exif" }
 image = { version = "0.25", default-features = false, features = ["jpeg"] }
+rusqlite = { version = "0.43.0", features = ["bundled"] }
+xml = "1.4.0"
 
 [[bin]]
 name = "mock-camera"

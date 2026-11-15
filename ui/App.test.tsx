@@ -1,5 +1,5 @@
 import { expect, open, test } from "nsh/test";
-import type { ConnectResult, ImportProgress, ImportReport, LibraryPhoto, PhotoDetails, PhotoItem, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
+import type { ConnectResult, ImportProgress, ImportReport, LibraryPhoto, PhotoDetails, PhotoItem, PhotoMarks, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
 import { applyRange, columnCount, selectAll, selectedCount, selectedIds, toggleId } from "./state/selection";
 
 const samplePhotos = [
@@ -25,10 +25,22 @@ const defaultWifiSettings: WifiSettings = {
   viaUtun: null,
 };
 
+function albumPhoto(
+  photo: Omit<LibraryPhoto, "rating" | "flag" | "marksError"> &
+    Partial<Pick<LibraryPhoto, "rating" | "flag" | "marksError">>,
+): LibraryPhoto {
+  return {
+    rating: 0,
+    flag: "none",
+    marksError: null,
+    ...photo,
+  };
+}
+
 const sampleAlbum: LibraryPhoto[] = [
-  { id: "R0000001.JPG", file: "R0000001.JPG", size: 1200, path: "/tmp/ricoh-mac-test-library/R0000001.JPG", previewUrl: "file:///tmp/ricoh-mac-test-library/R0000001.JPG" },
-  { id: "R0000002.DNG", file: "R0000002.DNG", size: 2400, path: "/tmp/ricoh-mac-test-library/R0000002.DNG", previewUrl: null },
-  { id: "R0000003.JPG", file: "R0000003.JPG", size: 1300, path: "/tmp/ricoh-mac-test-library/R0000003.JPG", previewUrl: "file:///tmp/ricoh-mac-test-library/R0000003.JPG" },
+  albumPhoto({ id: "R0000001.JPG", file: "R0000001.JPG", size: 1200, path: "/tmp/ricoh-mac-test-library/R0000001.JPG", previewUrl: "file:///tmp/ricoh-mac-test-library/R0000001.JPG" }),
+  albumPhoto({ id: "R0000002.DNG", file: "R0000002.DNG", size: 2400, path: "/tmp/ricoh-mac-test-library/R0000002.DNG", previewUrl: null }),
+  albumPhoto({ id: "R0000003.JPG", file: "R0000003.JPG", size: 1300, path: "/tmp/ricoh-mac-test-library/R0000003.JPG", previewUrl: "file:///tmp/ricoh-mac-test-library/R0000003.JPG" }),
 ];
 
 
@@ -190,15 +202,33 @@ function modules(options?: {
   libraryPhotos?: LibraryPhoto[] | (() => LibraryPhoto[]);
   photoDetails?: (path: string) => Promise<PhotoDetails> | PhotoDetails;
   loadPreview?: (path: string) => Promise<string | null> | string | null;
+  setPhotoMarks?: (path: string, rating: number, flag: string) => Promise<PhotoMarks> | PhotoMarks;
 }) {
   const folder = options?.folder === undefined ? null : options.folder;
   const photos = options?.photos ?? samplePhotos;
   const probe = options?.probe ?? connected;
   const settings = options?.wifiSettings ?? defaultWifiSettings;
   const readSettings = () => (typeof settings === "function" ? settings() : settings);
+  const listedSource = options?.libraryPhotos ?? [];
+  let storedPhotos: LibraryPhoto[] | null =
+    typeof listedSource === "function" ? null : listedSource.map((photo) => albumPhoto(photo));
   const readLibraryPhotos = () => {
-    const listed = options?.libraryPhotos ?? [];
-    return typeof listed === "function" ? listed() : listed;
+    if (typeof listedSource === "function") {
+      return listedSource().map((photo) => albumPhoto(photo));
+    }
+    return storedPhotos ?? [];
+  };
+  const defaultSetPhotoMarks = async (path: string, rating: number, flag: string): Promise<PhotoMarks> => {
+    const listed = readLibraryPhotos();
+    const index = listed.findIndex((item) => item.path === path);
+    if (index < 0) {
+      throw new Error("找不到这张照片。");
+    }
+    const next = albumPhoto({ ...listed[index], rating, flag, marksError: null });
+    if (storedPhotos) {
+      storedPhotos = storedPhotos.map((item, itemIndex) => (itemIndex === index ? next : item));
+    }
+    return { rating, flag };
   };
   const wifiConnect =
     options?.wifiConnect ??
@@ -213,7 +243,8 @@ function modules(options?: {
       "Library.pickFolder": async () => "/tmp/ricoh-mac-test-library",
       "Library.setCameraBaseUrl": async (url: string) => url,
       "Library.resetCameraBaseUrl": async () => "http://192.168.0.1",
-      "Library.listPhotos": async () => readLibraryPhotos(),
+      "Library.listPhotos": async () => ({ photos: readLibraryPhotos(), warning: null }),
+      "Library.setPhotoMarks": options?.setPhotoMarks ?? defaultSetPhotoMarks,
       "Library.loadPreview": async (path: string) => {
         if (options?.loadPreview) {
           return options.loadPreview(path);
@@ -946,7 +977,7 @@ test("I shows and hides photographer information in the side panel", async () =>
 test("question mark and the help control toggle the shortcut list", async () => {
   const app = await openFirstAlbumPhoto();
   expect(app.shows("id:viewer-hint")).toBe(true);
-  expect(app.texts()).toContain("← → 切换  Esc 返回  ? 快捷键");
+  expect(app.texts()).toContain("← → 切换  0–5 打星  P 已选  X 排除  U 清除标记  Esc 返回  ? 快捷键");
   expect(app.shows("id:viewer-shortcuts")).toBe(false);
   await app.keyboard.press("shift+/");
   await app.waitFor("id:viewer-shortcuts");
@@ -984,13 +1015,13 @@ test("choosing Photos from the detail page returns to the album and restores the
 test("returning from a later photo keeps that cell available in a long album", async () => {
   const libraryPhotos = Array.from({ length: 40 }, (_, index) => {
     const file = `R${String(index + 1).padStart(7, "0")}.JPG`;
-    return {
+    return albumPhoto({
       id: file,
       file,
       size: 1200,
       path: `/tmp/ricoh-mac-test-library/${file}`,
       previewUrl: `file:///tmp/ricoh-mac-test-library/${file}`,
-    };
+    });
   });
   const app = await launchInPhotos({
     folder: "/tmp/ricoh-mac-test-library",
@@ -1082,5 +1113,98 @@ test("my devices lists saved camera profiles", async () => {
   await app.press("id:connect-profile-s1");
   await app.waitFor("id:photo-0");
   expect(connectedIds).toEqual(["s1"]);
+  app.dispose();
+});
+
+test("album and detail show the same marks, and shortcuts persist after a reload", async () => {
+  const app = await openFirstAlbumPhoto();
+  await app.keyboard.press("3");
+  await app.waitFor("id:cull-summary");
+  expect(app.texts()).toContain("3 星");
+  await app.keyboard.press("p");
+  await app.waitUntil(() => app.texts().includes("3 星 · 已选"));
+  expect(app.texts()).toContain("3 星 · 已选");
+  await app.keyboard.press("escape");
+  await app.waitFor("id:album-grid");
+  await app.waitFor("id:cull-R0000001.JPG-summary");
+  expect(app.texts()).toContain("3 星 · 已选");
+  await app.press("id:back-home");
+  await app.waitFor("id:home-screen");
+  await app.press("id:open-photos");
+  await app.waitFor("id:cull-R0000001.JPG-summary");
+  expect(app.texts()).toContain("3 星 · 已选");
+  await app.press("id:album-photo-0");
+  await app.waitFor("id:cull-summary");
+  expect(app.texts()).toContain("3 星 · 已选");
+  app.dispose();
+});
+
+test("star shortcuts clear, flags stay exclusive, and a failed save is not shown as success", async () => {
+  let failNext = false;
+  const app = await openFirstAlbumPhoto({
+    setPhotoMarks: async (_path: string, rating: number, flag: string) => {
+      if (failNext) {
+        failNext = false;
+        throw new Error("磁盘已满。");
+      }
+      return { rating, flag };
+    },
+  });
+  await app.keyboard.press("5");
+  await app.waitUntil(() => app.texts().includes("5 星"));
+  await app.keyboard.press("x");
+  await app.waitUntil(() => app.texts().includes("5 星 · 排除"));
+  await app.keyboard.press("p");
+  await app.waitUntil(() => app.texts().includes("5 星 · 已选"));
+  expect(app.texts().includes("5 星 · 排除")).toBe(false);
+  await app.keyboard.press("5");
+  await app.waitUntil(() => !app.texts().includes("5 星 · 已选"));
+  await app.keyboard.press("u");
+  await app.waitUntil(() => app.texts().includes("未评级 · 无标记"));
+  await app.keyboard.press("2");
+  await app.waitUntil(() => app.texts().includes("2 星"));
+  failNext = true;
+  await app.keyboard.press("4");
+  await app.waitUntil(() => app.texts().some((line) => line.includes("无法保存标记") && line.includes("磁盘已满")));
+  expect(app.texts()).toContain("2 星");
+  expect(app.texts().includes("4 星")).toBe(false);
+  app.dispose();
+});
+
+test("culling shortcuts do not fire while the camera URL field is focused", async () => {
+  const app = await openFirstAlbumPhoto();
+  await app.keyboard.press("1");
+  await app.waitUntil(() => app.texts().includes("1 星"));
+  await app.press("id:settings-button");
+  await app.waitFor("id:camera-url");
+  await app.type("id:camera-url", "x");
+  await app.keyboard.press("5");
+  await app.keyboard.press("p");
+  await app.keyboard.press("x");
+  await app.keyboard.press("escape");
+  await app.waitUntil(() => !app.shows("id:camera-url"));
+  expect(app.texts()).toContain("1 星");
+  expect(app.texts().includes("5 星")).toBe(false);
+  expect(app.texts().includes("1 星 · 已选")).toBe(false);
+  expect(app.texts().includes("1 星 · 排除")).toBe(false);
+  app.dispose();
+});
+
+test("the album filter hides unmarked photos and updates when a flag changes", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:album-photo-0");
+  await app.press("id:cull-R0000001.JPG-flag-picked");
+  await app.waitUntil(() => app.texts().includes("已选"));
+  await app.press("id:album-filter-picked");
+  await app.waitFor("id:album-photo-0");
+  expect(app.shows("id:cull-R0000001.JPG-summary")).toBe(true);
+  expect(app.shows("id:cull-R0000002.DNG-summary")).toBe(false);
+  expect(app.texts()).toContain("共 1 / 3 张");
+  await app.press("id:cull-R0000001.JPG-flag-picked");
+  await app.waitFor("id:album-filter-empty");
+  expect(app.texts()).toContain("没有符合筛选的照片。");
   app.dispose();
 });

@@ -141,6 +141,15 @@ function bindKeys(model: AppModel) {
           model.openFocusedPhoto();
         }
       },
+      "0": () => model.ratePhoto(0),
+      "1": () => model.ratePhoto(1),
+      "2": () => model.ratePhoto(2),
+      "3": () => model.ratePhoto(3),
+      "4": () => model.ratePhoto(4),
+      "5": () => model.ratePhoto(5),
+      p: () => model.flagPhoto("picked"),
+      x: () => model.flagPhoto("rejected"),
+      u: () => model.clearPhotoFlag(),
     },
     { when: "notEditing" },
   );

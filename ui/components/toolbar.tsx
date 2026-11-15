@@ -123,7 +123,7 @@ export function PhotosToolbar(props: { model: AppModel }) {
           }}
           testID="album-count"
         >
-          {copy.albumCount(model.albumPhotos().length)}
+          {copy.albumCount(model.visibleAlbumPhotos().length, model.albumPhotos().length)}
         </Text>
       ) : null}
       {model.libraryFolder() ? (

@@ -16,7 +16,11 @@ The recommended order is as follows. The first two items are needed for the next
 
 3. **DNG preview in the album grid.** Implemented. The album grid reuses the detail page’s read-only extraction: when an embedded JPEG preview is present, the cell shows that thumbnail from `preview-cache`; when the preview is missing or unusable, the cell uses the existing “cannot preview” placeholder. The original file is not written back. This is not a sensor-level RAW decode.
 
-4. **Culling: 1 to 5 stars, plus picked and rejected.** This is Milestone 3 in the requirements. Ratings and flags are written to an XMP sidecar next to the photograph and mirrored into a local SQLite index for filtering. Do not rewrite JPEG or DNG pixels, and do not write marks back to the camera. Keyboard shortcuts for stars and flags remain an open decision.
+4. **Culling: 1 to 5 stars, plus picked and rejected.** Implemented. This is Milestone 3 in the requirements. A photograph can have 1 to 5 stars or remain unrated, and a single flag: picked, rejected, or none. Picked and rejected are mutually exclusive; the star rating is independent of the flag. The album grid and the photo detail page show the same marks and both offer pointer editing. Shortcuts, active in Photos and the detail page when a photograph is focused or viewed, and only when not editing text, are: `0`–`5` set the rating (`0` clears it; pressing the same star again also clears it), `P` toggles picked, `X` toggles rejected, and `U` clears the flag only. The album can be filtered by flag or by star rating.
+
+   Marks are written to a canonical XMP sidecar named `{file_name}.xmp`, including the photograph's extension, for example `R0001234.JPG.xmp` and `R0001234.DNG.xmp`. A same-stem JPEG/DNG pair therefore keeps two sidecars, and a write never overwrites the other photograph's marks. A `{stem}.xmp` file such as `R0001234.xmp` is read only when no sibling in the folder shares that stem; writes always go to the canonical path and leave `{stem}.xmp` untouched. The rating is stored as `xmp:Rating` with values 0 to 5. A value of `-1` (Adobe's rejected rating) is read as unrated and is not written, so reject is not coupled to the star value. The flag is stored as `ricohMac:Flag` (`picked` or `rejected`) in the namespace `http://ns.yunkou.ricoh-mac/1.0/`; the attribute is omitted when the flag is none. Unknown XMP fields and namespaces are kept. A corrupt existing sidecar is left unchanged and reported as an error. Writes are atomic (a hidden `.name.{pid}.partial` file renamed into place). Path names are rejected when they would traverse, and documents that contain `<!DOCTYPE>` or `<!ENTITY>` are rejected.
+
+   The same marks are mirrored into a rebuildable SQLite index under `data_dir()/cull-index.sqlite`, keyed by the canonical library path and file name. The sidecar is the source of truth. If the sidecar is missing, a previous index row may be shown. If the sidecar write fails, the index is not updated and the UI does not treat the change as saved. If the sidecar write succeeds and the index then fails, the error is still returned so a later load can rebuild the index. Original JPEG and DNG bytes are never written, and marks are not written back to the camera.
 
 ## Later milestones
 
@@ -29,7 +33,6 @@ The recommended order is as follows. The first two items are needed for the next
 ## Still-open decisions
 
 - Whether a later sensor-level DNG preview or histogram should accept rawler's LGPL-2.1 license, or use ImageIO or another decoder after a license review. This document does not choose between those options.
-- Keyboard shortcuts for stars and flags.
 - The public application name and the final bundle identifier.
 - Whether the release title should be “Ricoh Mac”, or should keep the current application file name.
 - Whether the release notes should keep a commit-comparison link at the end.

@@ -2,6 +2,7 @@ import { List, windowSize } from "nsh";
 import type { ListRef, Signal } from "nsh";
 import { cellWidth, columnCount } from "../state/selection";
 import type { AlbumPhoto } from "../state/app-model";
+import type { CullFlag } from "../state/cull";
 import type { ThumbLoader, ThumbRequest } from "../lib/thumb-loader";
 import { grid, space } from "../theme";
 import { AlbumCell } from "./album-cell";
@@ -22,12 +23,14 @@ function restoreIndex(photos: AlbumPhoto[], id: string | null): number | undefin
 }
 
 export function AlbumGrid(props: {
-  photos: Signal<AlbumPhoto[]>;
+  photos: () => AlbumPhoto[];
   thumbs: Signal<Record<string, string>>;
   restoreId: Signal<string | null>;
   loader: ThumbLoader;
   onPhotoPress: (index: number, id: string) => void;
   onFocusPhoto: (id: string) => void;
+  onRate: (id: string, rating: number) => void;
+  onFlag: (id: string, flag: CullFlag) => void;
   onRestored: () => void;
 }) {
   return (
@@ -63,6 +66,8 @@ export function AlbumGrid(props: {
           restoreId={props.restoreId}
           onPress={props.onPhotoPress}
           onFocus={props.onFocusPhoto}
+          onRate={props.onRate}
+          onFlag={props.onFlag}
           onRestored={props.onRestored}
         />
       )}
