@@ -2,6 +2,7 @@ import { List, windowSize } from "nsh";
 import type { ListRef, Signal } from "nsh";
 import { cellWidth, columnCount } from "../state/selection";
 import type { AlbumPhoto } from "../state/app-model";
+import type { ThumbLoader, ThumbRequest } from "../lib/thumb-loader";
 import { grid, space } from "../theme";
 import { AlbumCell } from "./album-cell";
 
@@ -22,7 +23,9 @@ function restoreIndex(photos: AlbumPhoto[], id: string | null): number | undefin
 
 export function AlbumGrid(props: {
   photos: Signal<AlbumPhoto[]>;
+  thumbs: Signal<Record<string, string>>;
   restoreId: Signal<string | null>;
+  loader: ThumbLoader;
   onPhotoPress: (index: number, id: string) => void;
   onFocusPhoto: (id: string) => void;
   onRestored: () => void;
@@ -38,6 +41,17 @@ export function AlbumGrid(props: {
       ref={(node) => restoreScroll(node, props.photos(), props.restoreId())}
       contentStyle={{ padding: space.lg, gap: grid.gap }}
       style={{ flex: 1 }}
+      onViewableItemsChange={(info) => {
+        const items: ThumbRequest[] = info.viewableItems
+          .filter((entry) => !entry.item.previewUrl)
+          .map((entry) => ({
+            id: entry.item.id,
+            folder: "",
+            file: entry.item.file,
+            path: entry.item.path,
+          }));
+        props.loader.request(items);
+      }}
     >
       {(item, index) => (
         <AlbumCell
@@ -45,6 +59,7 @@ export function AlbumGrid(props: {
           index={index}
           size={() => cellLayout().size}
           height={() => cellLayout().height}
+          thumbs={props.thumbs}
           restoreId={props.restoreId}
           onPress={props.onPhotoPress}
           onFocus={props.onFocusPhoto}

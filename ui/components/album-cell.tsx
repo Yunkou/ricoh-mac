@@ -10,12 +10,12 @@ export function AlbumCell(props: {
   index: () => number;
   size: () => number;
   height: () => number;
+  thumbs: Signal<Record<string, string>>;
   restoreId?: Signal<string | null>;
   onPress: (index: number, id: string) => void;
   onFocus: (id: string) => void;
   onRestored?: () => void;
 }) {
-  const preview = () => props.item().previewUrl;
   return (
     <View
       role="button"
@@ -33,6 +33,11 @@ export function AlbumCell(props: {
       focusVisibleStyle={focusRing}
     >
       <View
+        testID={
+          props.thumbs()[props.item().id] || props.item().previewUrl
+            ? `album-preview-${props.item().id}`
+            : `album-missing-${props.item().id}`
+        }
         style={{
           width: props.size(),
           height: props.size(),
@@ -48,13 +53,15 @@ export function AlbumCell(props: {
           borderColor: color.border,
         }}
       >
-        {preview() ? (
+        {props.thumbs()[props.item().id] || props.item().previewUrl ? (
           <Image
-            src={preview() ?? ""}
+            src={props.thumbs()[props.item().id] || props.item().previewUrl || ""}
             style={{ width: "100%", height: "100%", objectFit: "cover" }}
           />
         ) : (
-          <View style={{ alignItems: "center", gap: space.xs, padding: space.sm }}>
+          <View
+            style={{ alignItems: "center", gap: space.xs, padding: space.sm }}
+          >
             <Icon name="images" size={22} />
             <Text
               style={{

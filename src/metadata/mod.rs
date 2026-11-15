@@ -11,7 +11,6 @@ mod tiff;
 use std::fs;
 use std::io::{BufReader, Cursor};
 use std::path::{Path, PathBuf};
-use std::time::UNIX_EPOCH;
 
 use exif::{DateTime, Exif, Field, In, Reader, Tag, Value};
 use nsh_core::prelude::*;
@@ -112,12 +111,7 @@ pub fn inspect_photo(
         return Err(AppError::msg("找不到这张照片。"));
     }
     let size = metadata.len();
-    let mtime = metadata
-        .modified()
-        .ok()
-        .and_then(|time| time.duration_since(UNIX_EPOCH).ok())
-        .map(|duration| duration.as_secs())
-        .unwrap_or(0);
+    let mtime = preview::mtime_secs(&metadata);
     let file = path
         .file_name()
         .and_then(|name| name.to_str())
@@ -205,7 +199,7 @@ pub fn inspect_photo(
             details.histogram = Some(to_photo_histogram(histogram, "preview"));
         }
         if let Some(dir) = preview_cache_dir
-            && let Some(cached) = store_preview(dir, path, size, mtime, &preview.bytes)
+            && let Some(cached) = preview::store_jpeg(dir, path, size, mtime, &preview.bytes)
         {
             details.preview_url = Some(file_url(&cached));
             details.preview_source = Some("preview".to_string());
@@ -241,45 +235,6 @@ fn to_photo_histogram(histogram: histogram::Histogram, source: &str) -> PhotoHis
         green: histogram.green.into_iter().map(f64::from).collect(),
         blue: histogram.blue.into_iter().map(f64::from).collect(),
         source: source.to_string(),
-    }
-}
-
-fn store_preview(dir: &Path, source: &Path, size: u64, mtime: u64, jpeg: &[u8]) -> Option<PathBuf> {
-    fs::create_dir_all(dir).ok()?;
-    let name = source
-        .file_name()
-        .and_then(|value| value.to_str())
-        .unwrap_or("photo");
-    let safe: String = name
-        .chars()
-        .map(|ch| {
-            if ch.is_ascii_alphanumeric() || ch == '.' || ch == '-' || ch == '_' {
-                ch
-            } else {
-                '_'
-            }
-        })
-        .collect();
-    let dest = dir.join(format!("{safe}-{size}-{mtime}.jpg"));
-    if dest.is_file()
-        && dest
-            .metadata()
-            .ok()
-            .is_some_and(|info| info.len() == jpeg.len() as u64)
-    {
-        return Some(dest);
-    }
-    let tmp = dir.join(format!(
-        ".{safe}-{size}-{mtime}.{}.partial",
-        std::process::id()
-    ));
-    fs::write(&tmp, jpeg).ok()?;
-    match fs::rename(&tmp, &dest) {
-        Ok(()) => Some(dest),
-        Err(_) => {
-            let _ = fs::remove_file(&tmp);
-            None
-        }
     }
 }
 
@@ -454,6 +409,25 @@ fn gps_rationals(exif: &Exif, tag: Tag) -> Option<Vec<f64>> {
 }
 
 /// True when `path` resolves inside `library` after canonicalization.
+/// Look up a cached embedded preview without reading the DNG body.
+pub fn cached_preview_file(path: &Path, cache_dir: &Path) -> Option<PathBuf> {
+    preview::cached_for_file(path, cache_dir)
+}
+
+/// Load a cached or newly extracted embedded JPEG preview for a library DNG.
+///
+/// The original photograph is only read. Paths outside `library` are rejected.
+pub fn load_library_preview(
+    library: &Path,
+    path: &Path,
+    cache_dir: &Path,
+) -> Result<Option<PathBuf>, AppError> {
+    if !is_inside_library(library, path) {
+        return Err(AppError::msg("找不到这张照片。"));
+    }
+    preview::load_cached_jpeg(path, cache_dir)
+}
+
 pub fn is_inside_library(library: &Path, path: &Path) -> bool {
     let Ok(root) = library.canonicalize() else {
         return false;
@@ -466,7 +440,7 @@ pub fn is_inside_library(library: &Path, path: &Path) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::inspect_photo;
+    use super::{inspect_photo, load_library_preview};
     use crate::metadata::makernote::test_payload;
     use crate::metadata::preview::test_dng_with_preview;
     use image::{ImageFormat, Rgb, RgbImage};
@@ -813,5 +787,35 @@ mod tests {
             err.contains("无法读取这张照片") || err.contains("找不到"),
             "{err}"
         );
+    }
+
+    #[test]
+    fn load_library_preview_rejects_a_path_outside_the_library() {
+        let library = unique_dir("library");
+        let outside = unique_dir("outside");
+        let path = outside.join("R0000002.DNG");
+        fs::write(&path, b"dng").unwrap();
+        let err = load_library_preview(&library, &path, &library.join("cache"))
+            .unwrap_err()
+            .to_string();
+        assert!(err.contains("找不到这张照片"), "{err}");
+        assert_eq!(fs::read(&path).unwrap(), b"dng");
+    }
+
+    #[test]
+    fn load_library_preview_extracts_inside_the_library() {
+        let jpeg = solid_jpeg(200, 10, 10, 8, 8);
+        let dng = test_dng_with_preview(&jpeg, 8, 8);
+        let library = unique_dir("library-preview");
+        let path = library.join("R0000002.DNG");
+        fs::write(&path, &dng).unwrap();
+        let before = snapshot(&path);
+        let cache = library.join("cache");
+        let cached = load_library_preview(&library, &path, &cache)
+            .unwrap()
+            .expect("preview");
+        assert_eq!(snapshot(&path), before);
+        assert_eq!(fs::read(&cached).unwrap(), jpeg);
+        assert!(cached.starts_with(&cache));
     }
 }

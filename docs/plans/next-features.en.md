@@ -14,7 +14,7 @@ The recommended order is as follows. The first two items are needed for the next
 
 2. **Confirm Ricoh MakerNotes against real GR IIIx files.** Image Control, crop (40 mm when off, 50 mm or 71 mm when cropped, never the GR III values 35 mm or 47 mm), Snap, Full Press Snap, the ND filter, and color temperature must be checked against real JPEG and DNG files before the displayed labels are treated as final. The current parser follows public tag descriptions and synthetic fixtures. This item follows the existing detail page. It confirms work already implemented; it is not a new feature.
 
-3. **DNG preview in the album grid.** The album grid cannot preview DNG files. The detail page can show an embedded preview when one is present, and labels it as a preview, not as original pixels. The next step can reuse that read-only extraction to provide grid thumbnails, still without writing back to the original file.
+3. **DNG preview in the album grid.** Implemented. The album grid reuses the detail page’s read-only extraction: when an embedded JPEG preview is present, the cell shows that thumbnail from `preview-cache`; when the preview is missing or unusable, the cell uses the existing “cannot preview” placeholder. The original file is not written back. This is not a sensor-level RAW decode.
 
 4. **Culling: 1 to 5 stars, plus picked and rejected.** This is Milestone 3 in the requirements. Ratings and flags are written to an XMP sidecar next to the photograph and mirrored into a local SQLite index for filtering. Do not rewrite JPEG or DNG pixels, and do not write marks back to the camera. Keyboard shortcuts for stars and flags remain an open decision.
 

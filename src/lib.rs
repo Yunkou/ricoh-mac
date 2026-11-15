@@ -32,7 +32,7 @@ use importer::{
     FileImportStatus, ImportProgress as FileImportProgress, Importer, download_thumbnail,
 };
 use keychain::MacKeychain;
-use metadata::{PhotoDetails, inspect_photo, is_inside_library};
+use metadata::{PhotoDetails, inspect_photo, is_inside_library, load_library_preview};
 use profile::{
     CameraProfile, ProfileStore, WifiSession, delete_profile, save_profile, set_active_profile,
     set_auto_switch_back,
@@ -113,23 +113,33 @@ impl Library {
     /// List photographs already imported into the library folder.
     ///
     /// The listing is read-only. It does not create, rewrite, move, or delete
-    /// files, and it does not descend into subfolders.
+    /// files, and it does not descend into subfolders. DNG files are not opened
+    /// during listing. A cached embedded preview is included when one already
+    /// exists.
     pub async fn list_photos() -> Result<Vec<LibraryPhoto>, String> {
         let folder = load_config()?
             .library_folder
             .ok_or_else(|| "请先选择保存位置。".to_string())?;
         let path = PathBuf::from(folder);
+        let cache = data_directory().ok().map(|dir| dir.join("preview-cache"));
         let listed = blocking(move || list_imported_photos(&path))
             .await
             .map_err(|err| err.to_string())??;
         Ok(listed
             .into_iter()
             .map(|photo| LibraryPhoto {
+                preview_url: if photo.previewable {
+                    Some(file_url(&photo.path))
+                } else {
+                    cache.as_ref().and_then(|dir| {
+                        metadata::cached_preview_file(&photo.path, dir)
+                            .map(|cached| file_url(&cached))
+                    })
+                },
                 id: photo.file.clone(),
                 file: photo.file,
                 size: photo.size.map(|value| value as f64),
                 path: photo.path.display().to_string(),
-                preview_url: photo.previewable.then(|| file_url(&photo.path)),
             })
             .collect())
     }
@@ -155,6 +165,22 @@ impl Library {
         .map_err(|err| err.to_string())??;
         Ok(details)
     }
+
+    /// Return a `file:` URL for an embedded DNG preview, extracting and caching
+    /// it when needed. The original photograph is only read. Missing or unusable
+    /// previews yield `Ok(None)`.
+    pub async fn load_preview(path: String) -> Result<Option<String>, String> {
+        let folder = load_config()?
+            .library_folder
+            .ok_or_else(|| "请先选择保存位置。".to_string())?;
+        let library = PathBuf::from(folder);
+        let requested = PathBuf::from(path);
+        let cache = data_directory()?.join("preview-cache");
+        let cached = blocking(move || load_library_preview(&library, &requested, &cache))
+            .await
+            .map_err(|err| err.to_string())??;
+        Ok(cached.map(|path| file_url(&path)))
+    }
 }
 
 /// A photograph already present in the library folder.
@@ -168,7 +194,7 @@ pub struct LibraryPhoto {
     pub size: Option<f64>,
     /// Absolute path on disk.
     pub path: String,
-    /// `file:` URL for raster formats the image view can display. Absent for DNG in this version.
+    /// `file:` URL for a raster original, or for a cached DNG embedded preview when one already exists.
     pub preview_url: Option<String>,
 }
 

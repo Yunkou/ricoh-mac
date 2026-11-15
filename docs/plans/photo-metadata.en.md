@@ -88,7 +88,7 @@ Leave for later work:
 - A histogram computed from DNG sensor data
 - A waveform or RAW-level histogram that reflects linear RAW values
 
-Those items belong with a later RAW preview effort, not with the photographer information panel. The album grid still does not preview DNG files. Using rawler for a true RAW decode requires a decision on LGPL-2.1 first. macOS ImageIO, or another decoder, remains an option for a later sensor-level preview after a license review.
+Those items belong with a later RAW preview effort, not with the photographer information panel. The album grid uses the same read-only embedded JPEG extraction for DNG thumbnails. That is not a sensor-level RAW decode. Using rawler for a true RAW decode requires a decision on LGPL-2.1 first. macOS ImageIO, or another decoder, remains an option for a later sensor-level preview after a license review.
 
 ## Layout
 

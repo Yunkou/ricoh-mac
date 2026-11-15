@@ -10,7 +10,7 @@ import type {
 } from "ricoh-mac/native";
 import { copy } from "../copy";
 import { createThumbLoader, mergeThumb, splitListedPhotos } from "../lib/thumb-loader";
-import type { ListedPhoto } from "../lib/thumb-loader";
+import type { ListedPhoto, ThumbRequest } from "../lib/thumb-loader";
 import {
   applyRange,
   idsByFileName,
@@ -77,6 +77,14 @@ export function createAppModel() {
     load: (item) => Camera.loadThumbnail(item.folder, item.file),
     onLoaded: (id, path) => {
       thumbs.set(mergeThumb(thumbs(), id, path));
+    },
+  });
+  const albumThumbs = signal<Record<string, string>>({});
+  const albumThumbLoader = createThumbLoader({
+    concurrency: 4,
+    load: (item) => (item.path ? Library.loadPreview(item.path) : Promise.resolve(null)),
+    onLoaded: (id, path) => {
+      albumThumbs.set(mergeThumb(albumThumbs(), id, path));
     },
   });
 
@@ -342,9 +350,37 @@ export function createAppModel() {
     }
   }
 
+  function applyAlbumList(items: AlbumPhoto[]) {
+    albumThumbLoader.reset();
+    albumPhotos.set(items);
+    const cached: Record<string, string> = {};
+    const pending: ThumbRequest[] = [];
+    for (const photo of items) {
+      if (photo.previewUrl) {
+        cached[photo.id] = photo.previewUrl;
+      } else {
+        pending.push({
+          id: photo.id,
+          folder: "",
+          file: photo.file,
+          path: photo.path,
+        });
+      }
+    }
+    albumThumbs.set(cached);
+    albumThumbLoader.remember(Object.keys(cached));
+    albumThumbLoader.request(pending.slice(0, 24));
+  }
+
+  function clearAlbum() {
+    albumThumbLoader.reset();
+    albumThumbs.set({});
+    albumPhotos.set([]);
+  }
+
   async function loadAlbum() {
     if (!libraryFolder()) {
-      albumPhotos.set([]);
+      clearAlbum();
       closePhoto();
       return;
     }
@@ -352,13 +388,13 @@ export function createAppModel() {
     notice.set("");
     try {
       const items = await Library.listPhotos();
-      albumPhotos.set(items);
+      applyAlbumList(items);
       const current = viewingId();
       if (current && !items.some((photo) => photo.id === current)) {
         closePhoto();
       }
     } catch (err) {
-      albumPhotos.set([]);
+      clearAlbum();
       closePhoto();
       notice.set(`${copy.albumListFailed} ${String(err)}`);
     } finally {
@@ -657,11 +693,13 @@ export function createAppModel() {
     listing,
     mainArea,
     albumPhotos,
+    albumThumbs,
     albumListing,
     viewingId,
     restorePhotoId,
     photoDetails,
     thumbLoader,
+    albumThumbLoader,
     isBusy,
     loadSettings,
     chooseFolder,

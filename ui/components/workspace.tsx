@@ -38,7 +38,9 @@ export function PhotosWorkspace(props: { model: AppModel }) {
       ) : (
         <AlbumGrid
           photos={model.albumPhotos}
+          thumbs={model.albumThumbs}
           restoreId={model.restorePhotoId}
+          loader={model.albumThumbLoader}
           onPhotoPress={(_index, id) => model.openAlbumPhoto(id)}
           onFocusPhoto={(id) => model.focusedId.set(id)}
           onRestored={() => model.clearRestorePhoto()}

@@ -2,6 +2,7 @@ export type ThumbRequest = {
   id: string;
   folder: string;
   file: string;
+  path?: string;
 };
 
 export type ListedPhoto = {

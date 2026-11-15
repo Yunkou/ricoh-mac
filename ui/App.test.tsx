@@ -189,6 +189,7 @@ function modules(options?: {
   wifiConnectProfile?: (id: string) => Promise<ConnectResult> | ConnectResult;
   libraryPhotos?: LibraryPhoto[] | (() => LibraryPhoto[]);
   photoDetails?: (path: string) => Promise<PhotoDetails> | PhotoDetails;
+  loadPreview?: (path: string) => Promise<string | null> | string | null;
 }) {
   const folder = options?.folder === undefined ? null : options.folder;
   const photos = options?.photos ?? samplePhotos;
@@ -213,6 +214,12 @@ function modules(options?: {
       "Library.setCameraBaseUrl": async (url: string) => url,
       "Library.resetCameraBaseUrl": async () => "http://192.168.0.1",
       "Library.listPhotos": async () => readLibraryPhotos(),
+      "Library.loadPreview": async (path: string) => {
+        if (options?.loadPreview) {
+          return options.loadPreview(path);
+        }
+        return null;
+      },
       "Library.photoDetails": async (path: string) => {
         if (options?.photoDetails) {
           return options.photoDetails(path);
@@ -721,6 +728,73 @@ async function openFirstAlbumPhoto(moduleOverrides?: Parameters<typeof modules>[
   expect(app.shows("id:album-grid")).toBe(false);
   return app;
 }
+
+test("the album grid lists first, then fills a DNG cell from its embedded preview", async () => {
+  const order: string[] = [];
+  const calls: string[] = [];
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: () => {
+      order.push("list");
+      return sampleAlbum;
+    },
+    loadPreview: (path: string) => {
+      order.push("preview");
+      calls.push(path);
+      return "file:///tmp/ricoh-mac-test-library/R0000002.preview.jpg";
+    },
+  });
+  await app.waitFor("id:album-grid");
+  await app.waitFor("id:album-preview-R0000001.JPG");
+  await app.waitFor("id:album-preview-R0000002.DNG");
+  expect(app.shows("id:album-missing-R0000002.DNG")).toBe(false);
+  expect(order[0]).toBe("list");
+  expect(order).toContain("preview");
+  expect(order.indexOf("list")).toBeLessThan(order.indexOf("preview"));
+  expect(calls.every((path) => path.endsWith("R0000002.DNG"))).toBe(true);
+  expect(calls.filter((path) => path.endsWith("R0000002.DNG")).length).toBe(1);
+  app.dispose();
+});
+
+test("a DNG without a usable preview stays as a placeholder", async () => {
+  const calls: string[] = [];
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+    loadPreview: async (path: string) => {
+      calls.push(path);
+      return null;
+    },
+  });
+  await app.waitFor("id:album-missing-R0000002.DNG");
+  await app.waitUntil(() => calls.some((path) => path.endsWith("R0000002.DNG")));
+  expect(app.shows("id:album-preview-R0000002.DNG")).toBe(false);
+  expect(app.texts()).toContain("无法预览");
+  expect(app.shows("id:album-preview-R0000001.JPG")).toBe(true);
+  expect(calls.filter((path) => path.endsWith("R0000001.JPG")).length).toBe(0);
+  app.dispose();
+});
+
+test("a cached DNG preview from the listing is shown without extracting again", async () => {
+  const calls: string[] = [];
+  const photos = sampleAlbum.map((photo) =>
+    photo.id === "R0000002.DNG"
+      ? { ...photo, previewUrl: "file:///tmp/ricoh-mac-test-library/R0000002.preview.jpg" }
+      : photo,
+  );
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: photos,
+    loadPreview: async (path: string) => {
+      calls.push(path);
+      return "file:///tmp/should-not-load.jpg";
+    },
+  });
+  await app.waitFor("id:album-preview-R0000002.DNG");
+  expect(app.shows("id:album-missing-R0000002.DNG")).toBe(false);
+  expect(calls).toEqual([]);
+  app.dispose();
+});
 
 test("opening an imported photo shows a large view and clicking next and previous changes the displayed photo", async () => {
   const app = await openFirstAlbumPhoto();
