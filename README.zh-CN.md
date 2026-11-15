@@ -1,8 +1,8 @@
 # ricoh-mac
 
-规划中的 Mac 应用：通过 Wi-Fi 从理光 GR IIIx 导入照片，在本地相册里快速选片，并预览 RAW（DNG）。
+一款 Mac 应用：通过 Wi-Fi 从理光 GR IIIx 导入照片，在本地相册里快速选片，并预览 RAW（DNG）。
 
-本文档仓库目前只有规划文件，没有可运行的应用代码。任何功能都尚未实现，也尚未在真机上验证。
+本仓库收录第一版的产品需求与技术设计。应用源代码尚未纳入。依赖相机行为的条款依据公开资料编写，需在真机上验证。
 
 [英文说明](README.md)
 
@@ -10,6 +10,7 @@
 
 - 需求文档：[docs/requirements.zh-CN.md](docs/requirements.zh-CN.md)
 - 技术文档：[docs/tech-stack.zh-CN.md](docs/tech-stack.zh-CN.md)
+- 仓库：<https://github.com/Yunkou/ricoh-mac>
 
 ## 第一版范围
 
@@ -27,10 +28,4 @@
 - 自动切换 Wi-Fi（后续版本候选）
 - Developer ID 签名、公证，或对外分发安装包（第一版仅供个人使用，采用 ad hoc 签名）
 
-技术栈预定为 [Native Shell](https://nsh.dev/) 0.5.x，TSX 与 Rust mixed。细节见技术文档。
-
-## 状态
-
-GitHub 仓库：<https://github.com/Yunkou/ricoh-mac>
-
-这些文件先供本地审阅。在你确认之前，不应把它们当作已经发布的项目说明，也不应假设代码已经推送。
+第一版技术栈为 [Native Shell](https://nsh.dev/) 0.5.x，TSX 与 Rust mixed。细节见技术文档。

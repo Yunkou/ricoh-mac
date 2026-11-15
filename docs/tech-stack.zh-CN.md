@@ -1,11 +1,9 @@
 # 技术文档
 
-**文档状态：** 规划草案，供评审。文中的架构与接口是拟议方案，不代表已经实现，也不代表已在理光 GR IIIx 或本机打包流程上验证通过。
-
 配套需求：[requirements.zh-CN.md](requirements.zh-CN.md)
 英文版：[tech-stack.en.md](tech-stack.en.md)
 
-NSH 版本约定为 **0.5.x**（与当前稳定发行说明一致）。实现开始时应锁定当时的 0.5.x 补丁版本，并在文档中记下确切的 `nsh -V` 输出。
+NSH 版本约定为 **0.5.x**（与当前稳定发行说明一致）。实现开始时将锁定当时的 0.5.x 补丁版本，并在本文中记录确切的 `nsh -V` 输出。
 
 ---
 
@@ -21,7 +19,7 @@ NSH 版本约定为 **0.5.x**（与当前稳定发行说明一致）。实现开
 
 ### 2.1 分层
 
-- **TSX 界面：** 窗口、相册网格、导入进度、连接状态、选片快捷操作。组件函数按官方规则只执行一次，signal 与动态属性必须在绑定、`If` 或 `Each` 中读取，见 [Building with Rust](https://nsh.dev/docs/rust.md) 对 Reactivity 的说明，以及 NSH 文档中的常见错误。具体外观以确认后的 UX 决定为准。
+- **TSX 界面：** 窗口、相册网格、导入进度、连接状态、选片快捷操作。组件函数按官方规则只执行一次，signal 与动态属性必须在绑定、`If` 或 `Each` 中读取，见 [Building with Rust](https://nsh.dev/docs/rust.md) 对 Reactivity 的说明，以及 NSH 文档中的常见错误。具体外观以需求文档中开放问题明确后的 UX 决定为准。
 - **Rust native module：** 通过 `#[native_module("…")]` 向 TSX 导出类型化模块与函数，声明生成到 `.nsh/types`，由 `nsh check` 检查。见 [Building with Rust](https://nsh.dev/docs/rust.md)。
 - **系统能力：** 桌面文件对话框用 Rust 的 `pick_paths(OpenDialog::…)`；配置与索引写在应用数据目录。见 [Building with Rust：Files and folders](https://nsh.dev/docs/rust.md)。
 
@@ -29,15 +27,15 @@ NSH 版本约定为 **0.5.x**（与当前稳定发行说明一致）。实现开
 
 官方文档写明：`background` 与 `blocking` 把工作放到原生目标的线程上；需要在主线程调用的 AppKit API 则使用 `run_on_main_thread`。见 [Building with Rust](https://nsh.dev/docs/rust.md)。
 
-推荐约定：
+实现约定：
 
 - HTTP 探测、列表、下载、哈希、文件系统复制放在 `blocking` 或等价的后台任务中，不要堵引擎线程。
-- 任何必须在主线程执行的 ImageIO 或 AppKit 调用，经 `run_on_main_thread` 调度。哪些 API 真正要求主线程，待实现时验证。第一版不做自动切网，因此不必在第一版接入 CoreWLAN。
-- 进入 `blocking` 之前，在引擎线程快照 `data_dir()` 或其他反应式环境值。官方标准模块文档指出，应用自己的 Rust 代码以进程权限运行，但部分 NSH 环境 API 依赖反应式运行时；跨线程误用时的具体失败模式待实现时核对。
+- 任何必须在主线程执行的 ImageIO 或 AppKit 调用，经 `run_on_main_thread` 调度。哪些 API 真正要求主线程，将在实现时验证。第一版不做自动切网，因此不必在第一版接入 CoreWLAN。
+- 进入 `blocking` 之前，在引擎线程快照 `data_dir()` 或其他反应式环境值。官方标准模块文档指出，应用自己的 Rust 代码以进程权限运行，但部分 NSH 环境 API 依赖反应式运行时；跨线程误用时的具体失败模式将在实现时核对。
 
 ### 2.3 数据目录与配置
 
-NSH 0.5 发行说明写明 `data_dir()` 提供应用自己的数据目录；TSX 侧有 `process.dataDir`，`nsh.json` 的 `capabilities.fs` 可用 `${dataDir}`。见 [0.5.0 release notes](https://nsh.dev/releases/) 与 [Standard modules](https://nsh.dev/modules/standard-modules.md)。官方 OTA 文档的本地试验示例把包放在 `~/Library/Application Support/<bundle-id>/updates`，可视为 macOS 数据目录形态的旁证，见 [OTA Updates](https://nsh.dev/docs/ota-updates.md)。本应用 `data_dir()` 的精确路径仍以实现时的返回值为准。
+NSH 0.5 发行说明写明 `data_dir()` 提供应用自己的数据目录；TSX 侧有 `process.dataDir`，`nsh.json` 的 `capabilities.fs` 可用 `${dataDir}`。见 [0.5.0 release notes](https://nsh.dev/releases/) 与 [Standard modules](https://nsh.dev/modules/standard-modules.md)。官方 OTA 文档的本地试验示例把包放在 `~/Library/Application Support/<bundle-id>/updates`，可视为 macOS 数据目录形态的旁证，见 [OTA Updates](https://nsh.dev/docs/ota-updates.md)。本应用 `data_dir()` 的精确路径将以实现时的实际返回值为准。
 
 持久化约定：
 
@@ -46,7 +44,7 @@ NSH 0.5 发行说明写明 `data_dir()` 提供应用自己的数据目录；TSX 
 - 数据目录不保存用户原片。原片只出现在用户选定的目标文件夹中。
 - 评分与标记的权威副本之一是目标文件夹里的 XMP sidecar；SQLite 保存同一数据的镜像，供筛选使用。
 
-无 `capabilities` 键的独立应用在官方沙箱说明中对本地文件更宽松；一旦声明 `capabilities`，本地 `file:` 图像也必须落在 `fs.read` 根内，见 [Image](https://nsh.dev/elements/image.md)。实现时要明确选择：保持无 capabilities 的独立应用，或声明根目录并始终把用户目标文件夹加入可读范围。这一选择待实现时验证。
+无 `capabilities` 键的独立应用在官方沙箱说明中对本地文件更宽松；一旦声明 `capabilities`，本地 `file:` 图像也必须落在 `fs.read` 根内，见 [Image](https://nsh.dev/elements/image.md)。实现时将明确选择：保持无 capabilities 的独立应用，或声明根目录并始终把用户目标文件夹加入可读范围。这一选择将在实现时验证。
 
 ---
 
@@ -56,9 +54,9 @@ NSH 0.5 发行说明写明 `data_dir()` 提供应用自己的数据目录；TSX 
 
 官方产品把无线传图放在智能手机上的 Image Sync：先在相机上打开无线局域网，再在手机上选 SSID 并输入相机 LCD 上的密码；部分系统还要求定位权限才能读取 SSID 列表。蓝牙配对出现在官方 Image Sync 与 GR III / GR IIIx 的说明中。见 [Image Sync connection method](https://www.ricoh-imaging.co.jp/english/products/app/image-sync2/connect.html)。官方未发布给第三方 Mac 应用使用的 HTTP SDK。
 
-社区在固件与 Image Sync 上逆向出一套 HTTP API：相机作为接入点，地址多为 `http://192.168.0.1/v1`（另有型号使用 `192.168.1.1`，社区 OpenAPI 标明主要用于 G900SE，不是 GR IIIx 的默认描述）。见 [secretsauce](https://notes.secretsauce.net/notes/2022/06/16_ricoh-gr-iiix-80211-reverse-engineering.html) 与 [CursedHardware/ricoh-wireless-protocol](https://github.com/CursedHardware/ricoh-wireless-protocol)。Namako 写明连上相机 Wi-Fi 后，浏览器即可访问且未见鉴权。这些都不是官方保证，必须在目标固件的真机上复核。
+社区在固件与 Image Sync 上逆向出一套 HTTP API：相机作为接入点，地址多为 `http://192.168.0.1/v1`（另有型号使用 `192.168.1.1`，社区 OpenAPI 标明主要用于 G900SE，不是 GR IIIx 的默认描述）。见 [secretsauce](https://notes.secretsauce.net/notes/2022/06/16_ricoh-gr-iiix-80211-reverse-engineering.html) 与 [CursedHardware/ricoh-wireless-protocol](https://github.com/CursedHardware/ricoh-wireless-protocol)。Namako 写明连上相机 Wi-Fi 后，浏览器即可访问且未见鉴权。这些都不是官方保证，需在目标固件的真机上复核。
 
-第一版只使用下列只读请求（名称来自社区资料，待真机验证）：
+第一版只使用下列只读请求（名称来自社区资料，需在真机上验证）：
 
 - `GET /v1/ping`：连通探测。
 - `GET /v1/props`：只读属性，用于显示型号等（若响应里确有这些字段）。
@@ -66,7 +64,7 @@ NSH 0.5 发行说明写明 `data_dir()` 提供应用自己的数据目录；TSX 
 - `GET /v1/photos/{folder}/{file}` 以及文档化的 `size` 查询：下载或预览。
 - `GET /v1/photos/{folder}/{file}/info`：元数据（可选）。
 
-第一版明确不调用社区资料中的 `POST /v1/device/finish`、`POST /v1/device/wlan/finish`、拍摄与对焦接口，以及 `PUT /v1/params/…`。`PUT /v1/photos/{folder}/{file}/transfer` 可能在机身标记传输状态，默认也不调用，除非以后评审同意并在真机上确认其副作用。
+第一版明确不调用社区资料中的 `POST /v1/device/finish`、`POST /v1/device/wlan/finish`、拍摄与对焦接口，以及 `PUT /v1/params/…`。`PUT /v1/photos/{folder}/{file}/transfer` 可能在机身标记传输状态，第一版默认不调用。以后若要加入，需要变更范围并在真机上验证其副作用。
 
 ### 3.2 第一版连接方式（已决定）
 
@@ -92,7 +90,7 @@ NSH 0.5 发行说明写明 `data_dir()` 提供应用自己的数据目录；TSX 
 
 去重：当目标路径已存在，且大小（及可选校验和）一致时，视为同一文件并跳过。不要仅靠文件名在其他目录里做去重。若两个来源文件会落到同一文件名但内容不同，必须报告冲突，不得覆盖已有的完整原片。这是「全部放入同一文件夹并保留原文件名」这一决定的直接后果。
 
-HTTP Range 是否被相机支持，待真机验证。若不支持，续传应改为丢弃不完整的临时文件并重新下载，同时仍跳过已完整的最终文件。
+HTTP Range 是否被相机支持，需在真机上验证。若不支持，续传应改为丢弃不完整的临时文件并重新下载，同时仍跳过已完整的最终文件。
 
 官方说明还提到：建立无线连接或传图时，相机会抑制自动关机；USB 连接期间无线不可用。见 [Image Sync connection method](https://www.ricoh-imaging.co.jp/english/products/app/image-sync2/connect.html)。应用应在导入说明里提示这些限制。
 
@@ -104,13 +102,13 @@ HTTP Range 是否被相机支持，待真机验证。若不支持，续传应改
 
 约定：
 
-- 扫描范围默认是目标文件夹内的直接照片文件。第一版不再按日子目录分层。若用户后来在该文件夹里自建子文件夹，是否纳入扫描待实现时再定，并在界面说明。
+- 扫描范围默认是目标文件夹内的直接照片文件。第一版不再按日子目录分层。若用户后来在该文件夹里自建子文件夹，是否纳入扫描将在实现时决定，并在界面说明。
 - 索引保存在 `data_dir()` 下的 SQLite，字段包括相对路径、文件名、扩展名、字节大小、可选校验和、拍摄时间（若能从 EXIF 或 `info` 得到）、星级（1 到 5，或未评分）、标记（已选、排除，或无标记）、导入来源。
 - 选择 SQLite 是因为筛选、排序和增量更新比单份 JSON 更容易保持一致，也便于以后加字段。
 - 当索引与目录不一致时，以磁盘为准：刷新会补入新文件、移除已不存在的路径，但不得删除磁盘上的原片。sidecar 若存在，刷新时应与索引对账。
 - 缩略图缓存可以放在 `data_dir()` 下，按内容哈希或路径加修改时间索引，缓存丢失时可以重建。
 
-JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/elements/image.md) 说明源可以是 URL、资源、`data:` 或 `blob:`；并写明在桌面上，绝对路径或 `file:` URL 在 `fs.read` 覆盖该路径时可以加载。NSH `Image` 是否直接解码 DNG，文档未写明，待验证。不要对巨大文件做无界的 base64 内联。
+JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/elements/image.md) 说明源可以是 URL、资源、`data:` 或 `blob:`；并写明在桌面上，绝对路径或 `file:` URL 在 `fs.read` 覆盖该路径时可以加载。NSH `Image` 是否直接解码 DNG，文档未写明，需再验证。不要对巨大文件做无界的 base64 内联。
 
 ---
 
@@ -120,14 +118,14 @@ JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/ele
 
 具体约定：
 
-- 在导入文件旁写入 sidecar（实现时按常见工具对齐文件名形态，例如 `R0001234.xmp` 或 `R0001234.DNG.xmp`），使用标准字段如 `xmp:Rating`；已选与排除用明确的 sidecar 字段表示，字段名在实现时选定并写进文档。
+- 在导入文件旁写入 sidecar（实现时按常见工具对齐文件名形态，例如 `R0001234.xmp` 或 `R0001234.DNG.xmp`），使用标准字段如 `xmp:Rating`；已选与排除用明确的 sidecar 字段表示，字段名将在实现时选定并写入文档。
 - 同一数据镜像到 SQLite，供列表筛选与排序。
 - 不改 JPEG 或 DNG 的像素，也不写入这些原片内部的元数据包。
 - 相机上的文件不写 sidecar，也不通过无线回写评分。
 - 改星级或标记时，sidecar 与索引必须一起更新。若sidecar 丢失，应用仍可暂用索引工作，并在安全的前提下提示重建 sidecar。
 - 未采用「只存在应用数据库」的方案，以免其他工具看不到标记，也避免只丢数据目录时标记全部消失。未采用「写入图像文件内部」的方案，因为它会改写原片字节。
 
-`xmp:Rating` 的语义以 Adobe XMP 文档为准，见 [XMP xmp namespace](https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/)。与 Lightroom 或其他工具的往返兼容性，以及 sidecar 文件名形态，待验证。
+`xmp:Rating` 的语义以 Adobe XMP 文档为准，见 [XMP xmp namespace](https://developer.adobe.com/xmp/docs/XMPNamespaces/xmp/)。与 Lightroom 或其他工具的往返兼容性，以及 sidecar 文件名形态，需再验证。
 
 ---
 
@@ -139,11 +137,11 @@ JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/ele
 
 理由：选片需要的是及时、稳定的可视图，而不是最终颜色；内嵌预览通常已存在于相机 DNG 中，解码成本低，且不修改文件。完整 RAW 解码放入后续版本。
 
-也可以探测把 DNG 路径直接交给 NSH `Image`。若运行时用 ImageIO 且恰好能显示，成本最低；但官方 Image 文档没有列出 DNG，行为待验证。即便可行，也应对失败提供回退。
+也可以探测把 DNG 路径直接交给 NSH `Image`。若运行时用 ImageIO 且恰好能显示，成本最低；但官方 Image 文档没有列出 DNG，行为需再验证。即便可行，也应对失败提供回退。
 
-预览结果可缓存在 `data_dir()`，不要写回 DNG。EXIF 方向是否总被应用，待验证。`objc2` 与 ImageIO 在 NSH mixed 包中的链接方式、以及沙箱对本地文件读取的影响，待实现时验证。
+预览结果可缓存在 `data_dir()`，不要写回 DNG。EXIF 方向是否总被应用，需再验证。`objc2` 与 ImageIO 在 NSH mixed 包中的链接方式、以及沙箱对本地文件读取的影响，将在实现时验证。
 
-**尚未决定（待真机测试）：** 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项留在第 10.2 节，测试后再决定。
+**待真机验证：** 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项留在第 10.2 节，将在真机验证后决定。
 
 ---
 
@@ -172,7 +170,7 @@ nsh run --target macos
 
 **已决定：** 第一版仅供个人使用。采用上述 ad hoc 签名即可。不做 Developer ID 签名，也不做公证。对外分发安装包不在第一版范围内。官方文档中「分发给其他机器需再用 Developer ID 签名并公证」的路径，对本项目的第一版不适用。
 
-`nsh.json` 的 `id` 必须是合法的反向域名形式；官方会对 `com.example.` 占位符发出警告。见 [Packaging](https://nsh.dev/docs/packaging.md)。个人使用时的具体 id 仍待确认，确认前不要把占位符当成最终身份。
+`nsh.json` 的 `id` 必须是合法的反向域名形式；官方会对 `com.example.` 占位符发出警告。见 [Packaging](https://nsh.dev/docs/packaging.md)。个人使用时的具体 id 见需求文档「开放问题」。占位符不得作为最终身份。
 
 `nsh publish` 与 `.nshpkg` 是给宿主加载的签名包，与用户可安装的 `.app` 不是同一件事。见 [Signed Packages](https://nsh.dev/docs/signed-packages.md)。第一版以 `nsh package --target macos` 在本机制包为主。
 
@@ -180,13 +178,13 @@ nsh run --target macos
 
 ---
 
-## 10. 风险与待验证项
+## 10. 风险与待验证事项
 
 ### 10.1 风险
 
 - 无线协议来自社区逆向，固件升级后可能变化，且 Ricoh 没有对第三方客户端做出承诺。
 - 社区对预览 `size` 参数的描述不一致，实现若写死错误参数，会导致缩略图失败或下到过大的原图。
-- 若无线不能传 DNG，第一版「导入相机照片 + RAW 预览」的组合如何满足，仍待真机测试后决定。
+- 若无线不能传 DNG，第一版「导入相机照片 + RAW 预览」的组合如何满足，将在真机测试后决定。
 - 全部文件放入同一目标文件夹并保留原文件名时，不同拍摄日期下的同名文件可能冲突，必须报告而不得覆盖。
 - ad hoc 签名的 `.app` 在其他 Mac 上可能被 Gatekeeper 拦截。第一版不对外分发，因此这不是第一版验收项，但本机以外的拷贝仍可能受影响。
 
@@ -194,7 +192,7 @@ nsh run --target macos
 
 除需求文档第 9 节列出的相机事项外，还包括：
 
-- 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项待真机测试后再决定。
+- 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项将在真机验证后决定。
 - NSH `Image` 是否直接显示本地 DNG；`file:` 路径在有无 `capabilities` 时的行为。
 - `data_dir()` 在本应用 bundle id 下的精确路径。
 - `blocking` 内外调用 `data_dir()` 或其他环境 API 的约束。

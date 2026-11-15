@@ -1,8 +1,8 @@
 # ricoh-mac
 
-A planned Mac app for importing photos from a Ricoh GR IIIx over Wi-Fi, culling in a local album, and previewing RAW (DNG) files.
+A Mac application for importing photos from a Ricoh GR IIIx over Wi-Fi, culling in a local album, and previewing RAW (DNG) files.
 
-This repository currently holds planning documents only. There is no runnable app code here. No feature is implemented, and nothing has been verified on a real camera.
+This repository contains the product requirements and technical design for version 1. Application source code is not included yet. Camera-dependent behavior is documented from public sources and is to be validated on hardware.
 
 [Chinese README](README.zh-CN.md)
 
@@ -10,6 +10,7 @@ This repository currently holds planning documents only. There is no runnable ap
 
 - Product requirements: [docs/requirements.en.md](docs/requirements.en.md)
 - Technical design: [docs/tech-stack.en.md](docs/tech-stack.en.md)
+- Repository: <https://github.com/Yunkou/ricoh-mac>
 
 ## Version 1 scope
 
@@ -27,10 +28,4 @@ Not in version 1:
 - Automatic Wi-Fi switching (a later-version candidate)
 - Developer ID signing, notarization, or distributing installers (version 1 is for personal use, with ad hoc signing only)
 
-The planned stack is [Native Shell](https://nsh.dev/) 0.5.x, mixed TSX and Rust. Details are in the technical design.
-
-## Status
-
-GitHub repository: <https://github.com/Yunkou/ricoh-mac>
-
-These files are for local review first. Until you confirm them, they should not be treated as a published project description, and no code should be assumed to have been pushed.
+The version 1 stack is [Native Shell](https://nsh.dev/) 0.5.x, mixed TSX and Rust. Details are in the technical design.
