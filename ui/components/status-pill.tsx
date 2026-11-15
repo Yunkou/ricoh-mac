@@ -2,7 +2,7 @@ import { Text, View } from "nsh";
 import type { Signal } from "nsh";
 import { transitionStyle } from "../lib/motion";
 import { connectionColor, connectionLabel, type ConnectionState } from "../state/connection";
-import { motion, type } from "../theme";
+import { font, motion, type } from "../theme";
 import { Icon, type IconName } from "./icon";
 
 export function StatusPill(props: { connection: Signal<ConnectionState> }) {
@@ -12,9 +12,10 @@ export function StatusPill(props: { connection: Signal<ConnectionState> }) {
       <Text
         testID="connection-status"
         style={{
+          fontFamily: font.family,
           color: connectionColor(props.connection()),
           fontSize: type.body,
-          fontWeight: "600",
+          fontWeight: font.emphasis,
           numberOfLines: 1,
           textOverflow: "ellipsis",
           flex: 1,

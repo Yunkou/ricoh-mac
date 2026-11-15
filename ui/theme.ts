@@ -1,3 +1,5 @@
+import { chillDINGothicStack } from "./assets/fonts";
+
 export const color = {
   bg: "#111110",
   surface: "#1A1917",
@@ -17,14 +19,23 @@ export const color = {
 } as const;
 
 export const type = {
+  badge: 10,
   meta: 11,
   body: 13,
   emphasis: 15,
   title: 20,
+  lineBadge: 14,
   lineMeta: 16,
   lineBody: 18,
   lineEmphasis: 20,
   lineTitle: 26,
+} as const;
+
+export const font = {
+  family: chillDINGothicStack,
+  regular: "400",
+  emphasis: "600",
+  tabularNums: "tabular-nums",
 } as const;
 
 export const space = {
@@ -77,5 +88,7 @@ export const inputStyle = {
   borderColor: color.border,
   color: color.text,
   backgroundColor: color.bg,
+  fontFamily: font.family,
   fontSize: type.body,
+  fontWeight: font.regular,
 } as const;

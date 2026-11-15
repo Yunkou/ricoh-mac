@@ -1,7 +1,7 @@
 import { Text, View, reduceMotion } from "nsh";
 import { transitionMs } from "../lib/motion";
 import type { ButtonKind } from "../state/connection";
-import { color, focusRing, motion, radius, space, type } from "../theme";
+import { color, focusRing, font, motion, radius, space, type } from "../theme";
 import { Icon, onAccentIcon, type IconName } from "./icon";
 
 export type { ButtonKind };
@@ -59,9 +59,10 @@ export function Button(props: {
         {iconName ? <Icon name={iconName} size={16} /> : null}
         <Text
           style={{
+            fontFamily: font.family,
             color: isPrimary ? color.onAccent : isGhost ? color.secondary : color.text,
             fontSize: type.body,
-            fontWeight: "600",
+            fontWeight: font.emphasis,
           }}
         >
           {props.label}

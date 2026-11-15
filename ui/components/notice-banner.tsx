@@ -1,7 +1,7 @@
 import { Text } from "nsh";
 import type { Signal } from "nsh";
 import type { Banner } from "../state/connection";
-import { color, motion, space, type } from "../theme";
+import { color, font, motion, space, type } from "../theme";
 import { FadeEnter } from "./fade-enter";
 
 export function NoticeBanner(props: {
@@ -15,6 +15,7 @@ export function NoticeBanner(props: {
           <Text
             testID="notice"
             style={{
+              fontFamily: font.family,
               color: color.danger,
               fontSize: type.meta,
               paddingHorizontal: space.lg,
@@ -29,6 +30,7 @@ export function NoticeBanner(props: {
           <Text
             testID="banner"
             style={{
+              fontFamily: font.family,
               color: props.banner()?.tone === "danger" ? color.danger : color.text,
               fontSize: type.meta,
               paddingHorizontal: space.lg,

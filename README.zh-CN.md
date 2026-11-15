@@ -63,6 +63,12 @@ cargo run --bin mock-camera
 
 首次启动时选择资料库文件夹。连接真机时，请先打开相机无线局域网。第一次需要保存相机屏幕上显示的网络名称和密码（若电脑已经加入该网络，确认名称后只需输入密码）。密码保存在 macOS 钥匙串中。之后点击「连接相机」会自动切换到该网络，导入完成后默认切回原来的网络。系统可能会请求定位权限以便读取当前 Wi-Fi 名称；可以拒绝并手动输入。首次写入钥匙串时，系统也可能询问是否允许。若自动切网失败，请在系统设置中手动加入相机网络后再试。若电脑在相机网络上仍需要互联网，请使用以太网或 iPhone USB 网络共享。若 Clash Verge 等代理处于 TUN 模式并劫持了 `192.168.0.1`，请把该地址排除出代理。
 
+## 第三方字体
+
+界面使用 [ChillDINGothic](https://github.com/Warren2060/ChillDIN-ChillDINGothic)（寒蝉德黑体）v1.300 的 Regular 与 SemiBold。官方 OpenType 文件随应用打包，并仅在本进程内注册，不会安装到 macOS。
+
+该字体软件采用 SIL Open Font License 1.1 许可。版权 © 2023 ChillType，保留字体名称 'ChillDIN' 与 'ChillDINGothic'；版权 © 2014-2021 Adobe，保留字体名称 'Source'。官方许可文本随应用分发，源码位于 `ui/assets/fonts/LICENSE`。文件从 [ChillDINGothic_v1.300 发行包](https://github.com/Warren2060/ChillDIN-ChillDINGothic/releases/tag/ChillDINGothic_v1.300) 原样拷贝，来源与 SHA-256 记在 `ui/assets/fonts/SOURCE.txt`。
+
 ## 发布
 
 第一版的 GitHub Release 提供 ad hoc 签名的 macOS 应用，未经公证，也不使用 Developer ID 签名。

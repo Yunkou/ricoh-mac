@@ -1,0 +1,21 @@
+ChillDINGothic (寒蝉德黑体) v1.300
+
+Source: https://github.com/Warren2060/ChillDIN-ChillDINGothic
+Release: https://github.com/Warren2060/ChillDIN-ChillDINGothic/releases/tag/ChillDINGothic_v1.300
+Asset: ChillDINGothic.v1.300.zip
+  SHA-256: 2bea24f6eb4bb3ccce516d1704f2225a504bb5fffad6cee28269cc9964ba0b84
+
+Files vendored unchanged from that zip (no subsetting, no format conversion):
+
+- otf/ChillDINGothic_Regular.otf
+  SHA-256: 98543b27703ad3325a4276d6c17327ce5eb436933ac7eb1f9388c9c06c9301a2
+- otf/ChillDINGothic_SemiBold.otf
+  SHA-256: 0a9122796d87da0aa5def6e4dd1f169d9cb1db8068b73a2ad672df5b1fab902d
+
+LICENSE is the official repository file
+https://github.com/Warren2060/ChillDIN-ChillDINGothic/blob/main/license
+  SHA-256: 1c36529c0d0cede09180cd1af3e0a00bc913b2dc1729f72684b8c5aba76a3f07
+
+来源：https://github.com/Warren2060/ChillDIN-ChillDINGothic
+发行版：https://github.com/Warren2060/ChillDIN-ChillDINGothic/releases/tag/ChillDINGothic_v1.300
+本目录中的两枚 OTF 与 LICENSE 均保持官方原文件，未做子集化或格式转换。

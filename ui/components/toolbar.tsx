@@ -4,7 +4,7 @@ import { selectedCount, selectedIds } from "../state/selection";
 import type { AppModel } from "../state/app-model";
 import { displayPath } from "../state/connection";
 import { transitionMs } from "../lib/motion";
-import { color, focusRing, motion, space, type } from "../theme";
+import { color, focusRing, font, motion, space, type } from "../theme";
 import { Button } from "./button";
 import { Icon } from "./icon";
 import { StatusPill } from "./status-pill";
@@ -30,11 +30,12 @@ export function Toolbar(props: { model: AppModel }) {
           <Text
             testID="library-path"
             style={{
+              fontFamily: font.family,
               color: color.tertiary,
               fontSize: type.meta,
               lineHeight: type.lineMeta,
               numberOfLines: 1,
-              textOverflow: "ellipsis",
+              textOverflow: "ellipsis-middle",
             }}
           >
             {displayPath(model.libraryFolder() ?? "")}
@@ -42,7 +43,16 @@ export function Toolbar(props: { model: AppModel }) {
         ) : null}
       </View>
       {model.photos().length > 0 ? (
-        <Text style={{ color: color.secondary, fontSize: type.meta }} testID="photo-count">
+        <Text
+          style={{
+            fontFamily: font.family,
+            color: color.secondary,
+            fontSize: type.meta,
+            lineHeight: type.lineMeta,
+            fontVariant: font.tabularNums,
+          }}
+          testID="photo-count"
+        >
           {copy.photoCount(model.photos().length, selectedCount(model.selected()))}
         </Text>
       ) : null}

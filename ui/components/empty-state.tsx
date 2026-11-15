@@ -1,7 +1,7 @@
 import { Text, View } from "nsh";
 import { copy } from "../copy";
 import type { AppModel } from "../state/app-model";
-import { color, space, type } from "../theme";
+import { color, font, space, type } from "../theme";
 import { Button } from "./button";
 import { FadeEnter } from "./fade-enter";
 import { Icon } from "./icon";
@@ -22,11 +22,12 @@ export function FirstRun(props: { model: AppModel }) {
       }}
     >
       <Icon name="folder-plus" size={36} />
-      <Text style={{ color: color.text, fontSize: type.title, lineHeight: type.lineTitle, fontWeight: "600" }}>
+      <Text style={{ fontFamily: font.family, color: color.text, fontSize: type.title, lineHeight: type.lineTitle, fontWeight: font.emphasis }}>
         {copy.chooseLibraryTitle}
       </Text>
       <Text
         style={{
+          fontFamily: font.family,
           color: color.secondary,
           fontSize: type.body,
           lineHeight: type.lineBody,
@@ -64,7 +65,7 @@ export function ConnectPanel(props: { model: AppModel }) {
       }}
     >
       <Icon name={emptyIcon(model)} size={36} />
-      <Text style={{ color: color.text, fontSize: type.title, lineHeight: type.lineTitle, fontWeight: "600" }}>
+      <Text style={{ fontFamily: font.family, color: color.text, fontSize: type.title, lineHeight: type.lineTitle, fontWeight: font.emphasis }}>
         {emptyTitle(model)}
       </Text>
       {model.wifiSettings().viaUtun ? (
@@ -73,6 +74,7 @@ export function ConnectPanel(props: { model: AppModel }) {
           <Text
             testID="utun-hint"
             style={{
+              fontFamily: font.family,
               color: color.warning,
               fontSize: type.meta,
               lineHeight: type.lineMeta,
@@ -88,6 +90,7 @@ export function ConnectPanel(props: { model: AppModel }) {
         <Text
           testID="connection-help"
           style={{
+            fontFamily: font.family,
             color: color.secondary,
             fontSize: type.body,
             lineHeight: type.lineBody,

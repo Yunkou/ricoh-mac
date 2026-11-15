@@ -2,7 +2,7 @@ import { Text, View } from "nsh";
 import type { Signal } from "nsh";
 import { copy } from "../copy";
 import type { ImportPhase } from "../state/connection";
-import { color, space, type } from "../theme";
+import { color, font, space, type } from "../theme";
 import { FadeEnter } from "./fade-enter";
 import { Icon, type IconName } from "./icon";
 import { progressBar } from "./import-progress";
@@ -24,7 +24,10 @@ export function CompletionSummary(props: { importPhase: Signal<ImportPhase> }) {
         <View style={{ gap: space.xs }}>
           <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
             <Icon name={summaryIcon(props.importPhase())} size={16} />
-            <Text testID="import-summary" style={{ color: color.text, fontSize: type.body, flex: 1 }}>
+            <Text
+              testID="import-summary"
+              style={{ fontFamily: font.family, color: color.text, fontSize: type.body, flex: 1, fontVariant: font.tabularNums }}
+            >
               {summaryLabel(props.importPhase())}
             </Text>
           </View>
@@ -33,9 +36,12 @@ export function CompletionSummary(props: { importPhase: Signal<ImportPhase> }) {
               <Icon name={issue.status === "conflict" ? "circle-alert" : "circle-x"} size={14} />
               <Text
                 style={{
+                  fontFamily: font.family,
                   color: issue.status === "conflict" ? color.warning : color.danger,
                   fontSize: type.meta,
                   flex: 1,
+                  numberOfLines: 1,
+                  textOverflow: "ellipsis-middle",
                 }}
               >
                 {`${issue.file}：${issue.message || (issue.status === "conflict" ? copy.statusConflict : copy.statusError)}`}

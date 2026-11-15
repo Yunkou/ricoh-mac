@@ -63,6 +63,12 @@ The fixture listens on `http://127.0.0.1:8080` by default (pass a bind address t
 
 On first launch, choose a library folder. To connect a real GR IIIx, turn on the camera wireless LAN. The first time, save the SSID and password shown on the camera (or confirm the current network if the Mac is already joined). The password is stored in the macOS Keychain. Later, Connect Camera switches to that network automatically and, after import, switches back to the previous network by default. macOS may ask for Location Services so the app can read the current SSID; you can decline and type the name instead. The first Keychain write may also ask for permission. If automatic switching fails, join the camera network in System Settings and try again. If the Mac still needs internet while it is on the camera network, use Ethernet or iPhone USB tethering. If a proxy such as Clash Verge is in TUN mode and hijacks `192.168.0.1`, exclude that address from the proxy.
 
+## Third-party fonts
+
+The interface uses [ChillDINGothic](https://github.com/Warren2060/ChillDIN-ChillDINGothic) (寒蝉德黑体) version 1.300, Regular and SemiBold. The official OpenType files are bundled in the application and registered only for this process; they are not installed on macOS.
+
+This Font Software is licensed under the SIL Open Font License, Version 1.1. Copyright © 2023 ChillType, with Reserved Font Name 'ChillDIN' and 'ChillDINGothic'; copyright © 2014-2021 Adobe, with Reserved Font Name 'Source'. The official license text ships with the application as well as in `ui/assets/fonts/LICENSE`. The files were copied unchanged from [release ChillDINGothic_v1.300](https://github.com/Warren2060/ChillDIN-ChillDINGothic/releases/tag/ChillDINGothic_v1.300); provenance and SHA-256 digests are recorded in `ui/assets/fonts/SOURCE.txt`.
+
 ## Releases
 
 Version 1 GitHub Releases provide an ad hoc signed macOS application. They are not notarized and they are not signed with a Developer ID.

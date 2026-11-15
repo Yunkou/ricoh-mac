@@ -3,7 +3,7 @@ import type { Signal } from "nsh";
 import { copy } from "../copy";
 import { transitionStyle } from "../lib/motion";
 import type { ImportPhase } from "../state/connection";
-import { color, motion, space, type } from "../theme";
+import { color, font, motion, space, type } from "../theme";
 import { Icon } from "./icon";
 
 export function ImportProgress(props: { importPhase: Signal<ImportPhase> }) {
@@ -21,7 +21,18 @@ export function ImportProgress(props: { importPhase: Signal<ImportPhase> }) {
       {progressBar(runningRatio(props.importPhase()))}
       <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
         <Icon name="download" size={16} />
-        <Text testID="progress-text" style={{ color: color.secondary, fontSize: type.meta, flex: 1 }}>
+        <Text
+          testID="progress-text"
+          style={{
+            fontFamily: font.family,
+            color: color.secondary,
+            fontSize: type.meta,
+            flex: 1,
+            numberOfLines: 1,
+            textOverflow: "ellipsis-middle",
+            fontVariant: font.tabularNums,
+          }}
+        >
           {runningLabel(props.importPhase())}
         </Text>
       </View>

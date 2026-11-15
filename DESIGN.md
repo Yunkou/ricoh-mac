@@ -32,17 +32,18 @@ The palette is a dim room for reading photographs. Neutrals are warm-near-black,
 
 ## Typography
 
-**Display Font:** the platform system sans (San Francisco on macOS)
+**Display Font:** ChillDINGothic (寒蝉德黑体) v1.300, Regular and SemiBold, bundled in the app
 **Body Font:** the same family
-**Label/Mono Font:** none. File names use the same family.
+**Label/Mono Font:** none. File names use the same family. Counts use tabular figures from this family.
 
-**Character:** One family, tight steps, no letter-spaced uppercase section titles, no display face.
+**Character:** One family, tight steps, no letter-spaced uppercase section titles, no display face. Glyphs the face does not contain (for example most emoji) fall back to the system font. The font is registered for this process only; it is not installed on macOS.
 
 ### Hierarchy
 - **Title** (600, 20 / 26): First-run and empty-canvas headings.
 - **Emphasis** (600, 15 / 20): Settings heading.
 - **Body** (400 or 600, 13 / 18): Status, buttons, and primary sentences.
 - **Meta** (400, 11 / 16): Counts, captions, help, and file names under thumbnails.
+- **Badge** (600, 10 / 14): Import status on a thumbnail.
 
 ### Named Rules
 **The One Family Rule.** Do not introduce a second typeface for a technical or photographic mood.
@@ -83,4 +84,4 @@ State changes use short transitions (120 ms for press feedback, 150–220 ms for
 
 ## Source tokens
 
-TypeScript tokens live in `ui/theme.ts` and are consumed by the interface under `ui/`. Interface copy lives in `ui/copy.ts`. Icons are imported through `ui/components/icon.tsx`.
+TypeScript tokens live in `ui/theme.ts` and are consumed by the interface under `ui/`. Interface copy lives in `ui/copy.ts`. Icons are imported through `ui/components/icon.tsx`. The UI font is imported through `ui/assets/fonts/index.ts` and set as the app font in `ui/font-theme.json` (`font-sans`, named from `nsh.json`). The official OFL text sits beside the font files as `LICENSE`.

@@ -3,7 +3,7 @@ import type { Signal } from "nsh";
 import { copy } from "../copy";
 import { transitionMs, transitionStyle } from "../lib/motion";
 import type { FileStatus, PressModifiers } from "../state/connection";
-import { color, focusRing, motion, radius, space, type } from "../theme";
+import { color, focusRing, font, motion, radius, space, type } from "../theme";
 import type { ListedPhoto } from "../lib/thumb-loader";
 import { Icon, type IconName } from "./icon";
 
@@ -133,7 +133,7 @@ export function PhotoCell(props: {
             }}
           >
             <Icon name={fileStatusIcon[status() ?? "pending"]} size={12} />
-            <Text style={{ color: fileStatusColor[status() ?? "pending"], fontSize: 10, fontWeight: "600" }}>
+            <Text style={{ fontFamily: font.family, color: fileStatusColor[status() ?? "pending"], fontSize: type.badge, lineHeight: type.lineBadge, fontWeight: font.emphasis }}>
               {fileStatusLabel[status() ?? "pending"]}
             </Text>
           </View>
@@ -141,11 +141,12 @@ export function PhotoCell(props: {
       </View>
       <Text
         style={{
+          fontFamily: font.family,
           color: color.secondary,
           fontSize: type.meta,
           lineHeight: type.lineMeta,
           numberOfLines: 1,
-          textOverflow: "ellipsis",
+          textOverflow: "ellipsis-middle",
         }}
       >
         {props.item().file}

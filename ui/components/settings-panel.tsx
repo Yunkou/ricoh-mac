@@ -4,7 +4,7 @@ import { Input } from "nsh/base";
 import { copy } from "../copy";
 import { enterFade, exitFade } from "../lib/motion";
 import type { AppModel } from "../state/app-model";
-import { color, focusRing, inputStyle, motion, radius, space, type } from "../theme";
+import { color, focusRing, font, inputStyle, motion, radius, space, type } from "../theme";
 import { Button } from "./button";
 import { Icon, type IconName } from "./icon";
 
@@ -79,7 +79,17 @@ function settingsOverlay(model: AppModel, panelMotion: Motion) {
       <SectionLabel icon="settings" text={copy.settings} emphasis />
       <View style={{ gap: space.sm }}>
         <SectionLabel icon="folder" text={copy.settingsLibrary} />
-        <Text style={{ color: color.text, fontSize: type.body }} testID="settings-library-path">
+        <Text
+          style={{
+            fontFamily: font.family,
+            color: color.text,
+            fontSize: type.body,
+            lineHeight: type.lineBody,
+            numberOfLines: 1,
+            textOverflow: "ellipsis-middle",
+          }}
+          testID="settings-library-path"
+        >
           {model.libraryFolder() ? model.libraryFolder() : copy.chooseLibraryTitle}
         </Text>
         <Button
@@ -95,21 +105,21 @@ function settingsOverlay(model: AppModel, panelMotion: Motion) {
         <SectionLabel icon="wifi-cog" text={copy.profileSection} />
         {profile ? (
           <>
-            <Text testID="profile-identity" style={{ color: color.text, fontSize: type.body }}>
+            <Text testID="profile-identity" style={{ fontFamily: font.family, color: color.text, fontSize: type.body }}>
               {copy.profileIdentity(
                 [profile.model, profile.serial, profile.firmware].filter((part): part is string => Boolean(part)),
               )}
             </Text>
-            <Text testID="profile-ssid" style={{ color: color.secondary, fontSize: type.meta }}>
+            <Text testID="profile-ssid" style={{ fontFamily: font.family, color: color.secondary, fontSize: type.meta }}>
               {copy.profileSsid(profile.ssid)}
             </Text>
           </>
         ) : (
-          <Text testID="profile-empty" style={{ color: color.secondary, fontSize: type.meta }}>
+          <Text testID="profile-empty" style={{ fontFamily: font.family, color: color.secondary, fontSize: type.meta }}>
             {copy.noProfile}
           </Text>
         )}
-        <Text style={{ color: color.tertiary, fontSize: type.meta }}>{copy.editProfileHelp}</Text>
+        <Text style={{ fontFamily: font.family, color: color.tertiary, fontSize: type.meta }}>{copy.editProfileHelp}</Text>
         <Input
           value={model.ssidDraft()}
           onChange={(event) => model.ssidDraft.set(event.value)}
@@ -163,7 +173,7 @@ function settingsOverlay(model: AppModel, panelMotion: Motion) {
       </View>
       <View style={{ gap: space.sm }}>
         <SectionLabel icon="camera" text={copy.settingsCameraUrl} />
-        <Text style={{ color: color.tertiary, fontSize: type.meta }}>{copy.settingsCameraUrlHelp}</Text>
+        <Text style={{ fontFamily: font.family, color: color.tertiary, fontSize: type.meta }}>{copy.settingsCameraUrlHelp}</Text>
         <Input
           value={model.cameraUrl()}
           onChange={(event) => model.cameraUrl.set(event.value)}
@@ -199,9 +209,10 @@ function SectionLabel(props: { icon: IconName; text: string; emphasis?: boolean 
       <Icon name={props.icon} size={16} />
       <Text
         style={{
+          fontFamily: font.family,
           color: props.emphasis ? color.text : color.secondary,
           fontSize: props.emphasis ? type.emphasis : type.meta,
-          fontWeight: "600",
+          fontWeight: font.emphasis,
         }}
       >
         {props.text}
