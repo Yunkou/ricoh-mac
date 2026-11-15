@@ -64,7 +64,7 @@ Depth comes from tonal layers, not a large shadow system. The toolbar is one ste
 - **Primary button:** Amber fill, dark label, visible focus outline, disabled opacity 0.45.
 - **Secondary button:** Transparent fill, border, light label.
 - **Ghost button:** No border, secondary label, used for select all, clear, and refresh.
-- **Circular settings button:** Icon drawn from simple shapes, not an emoji or a letter.
+- **Circular settings button:** A Kubai `settings` icon in a circular control, not an emoji or a letter.
 - **Connection status:** Text in the toolbar, color plus wording. A first-time profile form sits on the empty canvas. After a network switch, a switch-back action can appear in the toolbar.
 - **Progress:** A 4-point bar and a file-name line while importing; a summary line afterward, with conflict and error details listed separately.
 - **Thumbnail:** Cover fit, selection mark in the trailing top corner, status badge in the leading bottom corner when an import has a result.
@@ -79,8 +79,8 @@ Depth comes from tonal layers, not a large shadow system. The toolbar is one ste
 
 ## Motion
 
-State changes may use a short 150–250 ms transition. Motion is not decorative. The app follows the system reduce-motion preference when NSH applies it to transitions.
+State changes use short transitions (120 ms for press feedback, 150–220 ms for state and overlays). Motion is not decorative: it explains press, connection, selection, import progress, and appearance of results. Transforms and opacity are preferred; the import fill uses `scaleX`, not a layout width change. The app does not bounce or shake. When `reduceMotion()` is set, spatial movement is removed and transitions take 0 ms; `createMotion` already lands at the end state. Iconography uses vendored Kubai Icons 0.9.0 SVGs (MIT), colored from the theme tokens, under `ui/assets/icons/`.
 
 ## Source tokens
 
-TypeScript tokens live in `ui/theme.ts` and are consumed by the interface under `ui/`. Interface copy lives in `ui/copy.ts`.
+TypeScript tokens live in `ui/theme.ts` and are consumed by the interface under `ui/`. Interface copy lives in `ui/copy.ts`. Icons are imported through `ui/components/icon.tsx`.

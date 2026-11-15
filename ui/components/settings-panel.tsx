@@ -1,20 +1,58 @@
-import { Overlay, Text, View } from "nsh";
+import { Overlay, Text, View, createMotion, signal } from "nsh";
+import type { Motion, Signal } from "nsh";
 import { Input } from "nsh/base";
 import { copy } from "../copy";
+import { enterFade, exitFade } from "../lib/motion";
 import type { AppModel } from "../state/app-model";
-import { color, focusRing, inputStyle, radius, space, type } from "../theme";
+import { color, focusRing, inputStyle, motion, radius, space, type } from "../theme";
 import { Button } from "./button";
+import { Icon, type IconName } from "./icon";
 
 export function SettingsPanel(props: { model: AppModel }) {
   const model = props.model;
+  const visible = signal(false);
+  const closing = signal(false);
+  const panelMotion = createMotion();
   return (
     <>
-      {model.settingsOpen() ? settingsOverlay(model) : null}
+      {syncSettingsMotion(model.settingsOpen(), visible, closing, panelMotion)}
+      {visible() ? settingsOverlay(model, panelMotion) : null}
     </>
   );
 }
 
-function settingsOverlay(model: AppModel) {
+function syncSettingsMotion(
+  open: boolean,
+  visible: Signal<boolean>,
+  closing: Signal<boolean>,
+  panelMotion: Motion,
+): null {
+  if (open) {
+    if (!visible()) {
+      visible.set(true);
+      closing.set(false);
+      void panelMotion.play(enterFade(8, motion.overlay));
+    } else if (closing()) {
+      closing.set(false);
+      void panelMotion.play(enterFade(8, motion.overlay));
+    }
+    return null;
+  }
+  if (visible() && !closing()) {
+    closing.set(true);
+    void panelMotion.play(exitFade(8, motion.exit)).then(({ finished }) => {
+      if (!finished || !closing()) {
+        return;
+      }
+      visible.set(false);
+      closing.set(false);
+      panelMotion.reset();
+    });
+  }
+  return null;
+}
+
+function settingsOverlay(model: AppModel, panelMotion: Motion) {
   const profile = model.wifiSettings().profile;
   return (
     <Overlay
@@ -35,16 +73,18 @@ function settingsOverlay(model: AppModel) {
         padding: space.lg,
         gap: space.md,
         boxShadow: [{ x: 0, y: 8, blur: 24, color: color.overlay }],
+        ...panelMotion.style,
       }}
     >
-      <Text style={{ color: color.text, fontSize: type.emphasis, fontWeight: "600" }}>{copy.settings}</Text>
+      <SectionLabel icon="settings" text={copy.settings} emphasis />
       <View style={{ gap: space.sm }}>
-        <Text style={{ color: color.secondary, fontSize: type.meta }}>{copy.settingsLibrary}</Text>
+        <SectionLabel icon="folder" text={copy.settingsLibrary} />
         <Text style={{ color: color.text, fontSize: type.body }} testID="settings-library-path">
           {model.libraryFolder() ? model.libraryFolder() : copy.chooseLibraryTitle}
         </Text>
         <Button
           label={model.libraryFolder() ? copy.changeLibrary : copy.chooseLibraryAction}
+          icon="folder-plus"
           kind="secondary"
           testID="choose-folder"
           disabled={model.isBusy()}
@@ -52,7 +92,7 @@ function settingsOverlay(model: AppModel) {
         />
       </View>
       <View style={{ gap: space.sm }}>
-        <Text style={{ color: color.secondary, fontSize: type.meta }}>{copy.profileSection}</Text>
+        <SectionLabel icon="wifi-cog" text={copy.profileSection} />
         {profile ? (
           <>
             <Text testID="profile-identity" style={{ color: color.text, fontSize: type.body }}>
@@ -95,6 +135,7 @@ function settingsOverlay(model: AppModel) {
         <View style={{ flexDirection: "row", gap: space.sm, flexWrap: "wrap" }}>
           <Button
             label={copy.saveProfile}
+            icon="save"
             kind="secondary"
             testID="save-profile"
             disabled={model.isBusy()}
@@ -103,6 +144,7 @@ function settingsOverlay(model: AppModel) {
           {profile ? (
             <Button
               label={copy.deleteProfile}
+              icon="trash"
               kind="ghost"
               testID="delete-profile"
               disabled={model.isBusy()}
@@ -112,6 +154,7 @@ function settingsOverlay(model: AppModel) {
         </View>
         <Button
           label={`${copy.autoSwitchBack}：${model.wifiSettings().autoSwitchBack ? copy.autoSwitchOn : copy.autoSwitchOff}`}
+          icon="arrow-left-right"
           kind="ghost"
           testID="auto-switch-back"
           disabled={model.isBusy()}
@@ -119,7 +162,7 @@ function settingsOverlay(model: AppModel) {
         />
       </View>
       <View style={{ gap: space.sm }}>
-        <Text style={{ color: color.secondary, fontSize: type.meta }}>{copy.settingsCameraUrl}</Text>
+        <SectionLabel icon="camera" text={copy.settingsCameraUrl} />
         <Text style={{ color: color.tertiary, fontSize: type.meta }}>{copy.settingsCameraUrlHelp}</Text>
         <Input
           value={model.cameraUrl()}
@@ -131,6 +174,7 @@ function settingsOverlay(model: AppModel) {
         <View style={{ flexDirection: "row", gap: space.sm }}>
           <Button
             label={copy.saveUrl}
+            icon="save"
             kind="secondary"
             testID="save-url"
             disabled={model.isBusy()}
@@ -146,5 +190,22 @@ function settingsOverlay(model: AppModel) {
         </View>
       </View>
     </Overlay>
+  );
+}
+
+function SectionLabel(props: { icon: IconName; text: string; emphasis?: boolean }) {
+  return (
+    <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+      <Icon name={props.icon} size={16} />
+      <Text
+        style={{
+          color: props.emphasis ? color.text : color.secondary,
+          fontSize: props.emphasis ? type.emphasis : type.meta,
+          fontWeight: "600",
+        }}
+      >
+        {props.text}
+      </Text>
+    </View>
   );
 }

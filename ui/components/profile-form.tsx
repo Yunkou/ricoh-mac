@@ -47,6 +47,7 @@ export function ProfileForm(props: { model: AppModel }) {
       />
       <Button
         label={copy.saveCameraWifi}
+        icon="wifi"
         kind="primary"
         testID="save-and-connect"
         disabled={model.isBusy()}

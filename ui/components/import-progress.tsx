@@ -1,8 +1,10 @@
 import { Text, View } from "nsh";
 import type { Signal } from "nsh";
 import { copy } from "../copy";
+import { transitionStyle } from "../lib/motion";
 import type { ImportPhase } from "../state/connection";
-import { color, space, type } from "../theme";
+import { color, motion, space, type } from "../theme";
+import { Icon } from "./icon";
 
 export function ImportProgress(props: { importPhase: Signal<ImportPhase> }) {
   return (
@@ -17,9 +19,12 @@ export function ImportProgress(props: { importPhase: Signal<ImportPhase> }) {
       }}
     >
       {progressBar(runningRatio(props.importPhase()))}
-      <Text testID="progress-text" style={{ color: color.secondary, fontSize: type.meta }}>
-        {runningLabel(props.importPhase())}
-      </Text>
+      <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+        <Icon name="download" size={16} />
+        <Text testID="progress-text" style={{ color: color.secondary, fontSize: type.meta, flex: 1 }}>
+          {runningLabel(props.importPhase())}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -39,8 +44,11 @@ export function progressBar(ratio: number) {
         testID="progress-fill"
         style={{
           height: 4,
-          width: `${Math.round(ratio * 100)}%`,
+          width: "100%",
           backgroundColor: color.accent,
+          transformOrigin: "0% 50%",
+          transform: [{ scaleX: ratio }],
+          ...transitionStyle("transform", motion.duration),
         }}
       />
     </View>

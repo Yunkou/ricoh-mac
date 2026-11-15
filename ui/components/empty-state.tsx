@@ -3,13 +3,16 @@ import { copy } from "../copy";
 import type { AppModel } from "../state/app-model";
 import { color, space, type } from "../theme";
 import { Button } from "./button";
+import { FadeEnter } from "./fade-enter";
+import { Icon } from "./icon";
 import { ProfileForm } from "./profile-form";
 
 export function FirstRun(props: { model: AppModel }) {
   const model = props.model;
   return (
-    <View
-      testID="first-run"
+    <FadeEnter style={{ flex: 1 }}>
+      <View
+        testID="first-run"
       style={{
         flex: 1,
         alignItems: "center",
@@ -18,6 +21,7 @@ export function FirstRun(props: { model: AppModel }) {
         gap: space.lg,
       }}
     >
+      <Icon name="folder-plus" size={36} />
       <Text style={{ color: color.text, fontSize: type.title, lineHeight: type.lineTitle, fontWeight: "600" }}>
         {copy.chooseLibraryTitle}
       </Text>
@@ -37,17 +41,20 @@ export function FirstRun(props: { model: AppModel }) {
         kind="primary"
         testID="choose-folder-first"
         disabled={model.isBusy()}
+        icon="folder-plus"
         onPress={() => void model.chooseFolder()}
       />
-    </View>
+      </View>
+    </FadeEnter>
   );
 }
 
 export function ConnectPanel(props: { model: AppModel }) {
   const model = props.model;
   return (
-    <View
-      testID="empty-canvas"
+    <FadeEnter style={{ flex: 1 }}>
+      <View
+        testID="empty-canvas"
       style={{
         flex: 1,
         alignItems: "center",
@@ -56,22 +63,26 @@ export function ConnectPanel(props: { model: AppModel }) {
         gap: space.lg,
       }}
     >
+      <Icon name={emptyIcon(model)} size={36} />
       <Text style={{ color: color.text, fontSize: type.title, lineHeight: type.lineTitle, fontWeight: "600" }}>
         {emptyTitle(model)}
       </Text>
       {model.wifiSettings().viaUtun ? (
-        <Text
-          testID="utun-hint"
-          style={{
-            color: color.warning,
-            fontSize: type.meta,
-            lineHeight: type.lineMeta,
-            textAlign: "center",
-            maxWidth: 460,
-          }}
-        >
-          {copy.utunHint(model.wifiSettings().viaUtun ?? "")}
-        </Text>
+        <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 8, maxWidth: 460 }}>
+          <Icon name="wifi-alert" size={18} />
+          <Text
+            testID="utun-hint"
+            style={{
+              color: color.warning,
+              fontSize: type.meta,
+              lineHeight: type.lineMeta,
+              textAlign: "center",
+              flex: 1,
+            }}
+          >
+            {copy.utunHint(model.wifiSettings().viaUtun ?? "")}
+          </Text>
+        </View>
       ) : null}
       {showConnectionHelp(model) ? (
         <Text
@@ -93,14 +104,33 @@ export function ConnectPanel(props: { model: AppModel }) {
       {showConnectButton(model) ? (
         <Button
           label={copy.connectCamera}
+          icon="wifi"
           kind="primary"
           testID="connect-camera"
           disabled={model.isBusy()}
           onPress={() => void model.connectCamera()}
         />
       ) : null}
-    </View>
+      </View>
+    </FadeEnter>
   );
+}
+
+function emptyIcon(model: AppModel): "loader" | "wifi" | "wifi-cog" | "images" | "wifi-x" {
+  const state = model.connection();
+  if (model.listing() || state.kind === "connecting") {
+    return "loader";
+  }
+  if (state.kind === "need_profile") {
+    return "wifi-cog";
+  }
+  if (state.kind === "connected") {
+    return "images";
+  }
+  if (state.kind === "error") {
+    return "wifi-x";
+  }
+  return "wifi";
 }
 
 function emptyTitle(model: AppModel): string {

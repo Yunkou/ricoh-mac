@@ -52,7 +52,14 @@ export const grid = {
 } as const;
 
 export const motion = {
+  press: 120,
+  short: 150,
   duration: 180,
+  enter: 200,
+  overlay: 220,
+  exit: 150,
+  easing: "cubic-bezier(0.16, 1, 0.3, 1)",
+  easingCubic: [0.16, 1, 0.3, 1] as const,
 } as const;
 
 export const focusRing = {

@@ -1,7 +1,8 @@
 import { Text } from "nsh";
 import type { Signal } from "nsh";
 import type { Banner } from "../state/connection";
-import { color, space, type } from "../theme";
+import { color, motion, space, type } from "../theme";
+import { FadeEnter } from "./fade-enter";
 
 export function NoticeBanner(props: {
   notice: Signal<string>;
@@ -10,29 +11,33 @@ export function NoticeBanner(props: {
   return (
     <>
       {props.notice() ? (
-        <Text
-          testID="notice"
-          style={{
-            color: color.danger,
-            fontSize: type.meta,
-            paddingHorizontal: space.lg,
-            paddingVertical: space.sm,
-          }}
-        >
-          {props.notice()}
-        </Text>
+        <FadeEnter distance={0} duration={motion.short}>
+          <Text
+            testID="notice"
+            style={{
+              color: color.danger,
+              fontSize: type.meta,
+              paddingHorizontal: space.lg,
+              paddingVertical: space.sm,
+            }}
+          >
+            {props.notice()}
+          </Text>
+        </FadeEnter>
       ) : props.banner() ? (
-        <Text
-          testID="banner"
-          style={{
-            color: props.banner()?.tone === "danger" ? color.danger : color.text,
-            fontSize: type.meta,
-            paddingHorizontal: space.lg,
-            paddingVertical: space.sm,
-          }}
-        >
-          {props.banner()?.text}
-        </Text>
+        <FadeEnter distance={0} duration={motion.short}>
+          <Text
+            testID="banner"
+            style={{
+              color: props.banner()?.tone === "danger" ? color.danger : color.text,
+              fontSize: type.meta,
+              paddingHorizontal: space.lg,
+              paddingVertical: space.sm,
+            }}
+          >
+            {props.banner()?.text}
+          </Text>
+        </FadeEnter>
       ) : null}
     </>
   );

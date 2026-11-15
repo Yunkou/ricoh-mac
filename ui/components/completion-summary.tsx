@@ -3,38 +3,56 @@ import type { Signal } from "nsh";
 import { copy } from "../copy";
 import type { ImportPhase } from "../state/connection";
 import { color, space, type } from "../theme";
+import { FadeEnter } from "./fade-enter";
+import { Icon, type IconName } from "./icon";
 import { progressBar } from "./import-progress";
 
 export function CompletionSummary(props: { importPhase: Signal<ImportPhase> }) {
   return (
-    <View
-      style={{
-        paddingHorizontal: space.lg,
-        paddingVertical: space.sm,
-        gap: space.sm,
-        borderBottomWidth: 1,
-        borderColor: color.border,
-        backgroundColor: color.surface,
-      }}
-    >
-      {progressBar(1)}
-      <View style={{ gap: space.xs }}>
-        <Text testID="import-summary" style={{ color: color.text, fontSize: type.body }}>
-          {summaryLabel(props.importPhase())}
-        </Text>
-        {issueLines(props.importPhase()).map((issue) => (
-          <Text
-            style={{
-              color: issue.status === "conflict" ? color.warning : color.danger,
-              fontSize: type.meta,
-            }}
-          >
-            {`${issue.file}：${issue.message || (issue.status === "conflict" ? copy.statusConflict : copy.statusError)}`}
-          </Text>
-        ))}
+    <FadeEnter>
+      <View
+        style={{
+          paddingHorizontal: space.lg,
+          paddingVertical: space.sm,
+          gap: space.sm,
+          borderBottomWidth: 1,
+          borderColor: color.border,
+          backgroundColor: color.surface,
+        }}
+      >
+        {progressBar(1)}
+        <View style={{ gap: space.xs }}>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+            <Icon name={summaryIcon(props.importPhase())} size={16} />
+            <Text testID="import-summary" style={{ color: color.text, fontSize: type.body, flex: 1 }}>
+              {summaryLabel(props.importPhase())}
+            </Text>
+          </View>
+          {issueLines(props.importPhase()).map((issue) => (
+            <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 6 }}>
+              <Icon name={issue.status === "conflict" ? "circle-alert" : "circle-x"} size={14} />
+              <Text
+                style={{
+                  color: issue.status === "conflict" ? color.warning : color.danger,
+                  fontSize: type.meta,
+                  flex: 1,
+                }}
+              >
+                {`${issue.file}：${issue.message || (issue.status === "conflict" ? copy.statusConflict : copy.statusError)}`}
+              </Text>
+            </View>
+          ))}
+        </View>
       </View>
-    </View>
+    </FadeEnter>
   );
+}
+
+function summaryIcon(phase: ImportPhase): IconName {
+  if (phase.kind === "done" && (phase.errors > 0 || phase.conflicts > 0)) {
+    return "circle-alert";
+  }
+  return "circle-check";
 }
 
 function summaryLabel(phase: ImportPhase): string {
