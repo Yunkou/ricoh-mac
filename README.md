@@ -80,7 +80,8 @@ git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
 ```
 
-Pushing a tag that matches `v*` starts the Release workflow. The workflow runs `nsh check`, `nsh test`, and `cargo fmt` / `clippy` with `RICOH_MAC_NO_WIFI_SWITCH=1`, packages the application for macOS on an arm64 runner, and publishes a GitHub Release. The archive is named `ricoh-mac-<tag>-macos-arm64.zip` and is accompanied by a SHA-256 file. Tags whose version has a suffix such as `-rc` or `-beta` are published as prereleases. Re-running the workflow for an existing tag updates that Release and replaces the uploaded files.
+Pushing a tag that matches `v*` starts the Release workflow. The workflow runs `nsh check`, `nsh test`, and `cargo fmt` / `clippy` with `RICOH_MAC_NO_WIFI_SWITCH=1`, packages the application for macOS on an arm64 runner, and publishes a GitHub Release. The archive is named `ricoh-mac-<tag>-macos-arm64.zip` and is accompanied by a SHA-256 file. Tags whose version has a suffix such as `-rc` or `-beta` are published as prereleases. Re-running the workflow for an existing tag updates that Release and replaces the uploaded files. To rebuild an already-pushed tag with a newer workflow file, run the Release workflow from `main` with the `tag` input set to that tag, for example `gh workflow run release.yml --ref main -f tag=v0.1.0`. The job checks out the tag, packages that commit, and uploads the archive to the existing Release.
+
 
 To rebuild the archive and checksum on an arm64 Mac without publishing:
 
