@@ -8,62 +8,68 @@ Copyright (c) 2026 Kubai087 and the Kubai Icons contributors
 
 These SVG files were retrieved from the official color API, which is
 documented at https://icons.kubai.design/docs/static/, and pinned to
-package version 0.9.0. Each file uses the soft variant at size 96, with
-colors taken from ui/theme.ts. The app vendors the files and does not
-load icons from the network at runtime.
+package version 0.9.0. The official library has two variants, color and
+soft. Color is the default multi-tone style: gradients, outlines, marks,
+and shadows are all derived from one accent color. Soft is the muted
+variant. Interface icons use the color variant at size 96, with accents
+taken from ui/theme.ts (amber, neutrals, and semantic success, warning,
+and danger). Primary-button icons (*-on-accent.svg) stay on the soft
+variant in the on-accent near-black, so they remain monochrome and
+legible on the amber fill. The app vendors the files and does not load
+icons from the network at runtime.
 
 Retrieved from:
-  settings.svg  color=#A39E96  sha256=a7df40a230e44970ef0db9f8f58f160bde7fb52face7fbef11970161a79b0d88
-    https://icons.kubai.design/api/icon/settings.svg?color=A39E96&variant=soft&size=96
-  wifi.svg  color=#D8A45A  sha256=ce3934c3696f0cadb4cdd4c2ba7e44b1bfe2581f535ac8a761899ce082227426
-    https://icons.kubai.design/api/icon/wifi.svg?color=D8A45A&variant=soft&size=96
-  loader.svg  color=#A39E96  sha256=d9277044c6b4878c6212d91d564ea11e7b3a5a1522f4fbc38d847d8dd28254e6
-    https://icons.kubai.design/api/icon/loader.svg?color=A39E96&variant=soft&size=96
-  wifi-check.svg  color=#7EA77A  sha256=92bf56cd280a8a5662bbaf2063c3638f6a0b077f70acbaf4ca727e4b31f1c3dc
-    https://icons.kubai.design/api/icon/wifi-check.svg?color=7EA77A&variant=soft&size=96
-  wifi-cog.svg  color=#E09040  sha256=310aad770c0fb096c1f12a10737d4cbcaa4fec1792c4cb4be6beed1c8e807dfa
-    https://icons.kubai.design/api/icon/wifi-cog.svg?color=E09040&variant=soft&size=96
-  wifi-x.svg  color=#D67A76  sha256=f57f60bedeff0aadfa4dbe5e909d4206a3a526132e8439199b8ae75e9e2f327b
-    https://icons.kubai.design/api/icon/wifi-x.svg?color=D67A76&variant=soft&size=96
-  wifi-off.svg  color=#A39E96  sha256=49d32d99f8831ca776de015214b6440fce33810f94f4fa4362808aa0a23b308f
-    https://icons.kubai.design/api/icon/wifi-off.svg?color=A39E96&variant=soft&size=96
-  arrow-left-right.svg  color=#A39E96  sha256=acada31bc54536d543f15c84c909e7f05b8431226fb59fe449424dc684629064
-    https://icons.kubai.design/api/icon/arrow-left-right.svg?color=A39E96&variant=soft&size=96
-  download.svg  color=#D8A45A  sha256=d2f412f62f2e1d90e8e918a61e14672fff8366b802882bdaabdc86cc9d88c356
-    https://icons.kubai.design/api/icon/download.svg?color=D8A45A&variant=soft&size=96
-  folder-down.svg  color=#A39E96  sha256=c7eb21fb746f3434355f3f393c08c3f4239fe6a9304e3fd1d14e945c6003ad20
-    https://icons.kubai.design/api/icon/folder-down.svg?color=A39E96&variant=soft&size=96
-  list-checks.svg  color=#A39E96  sha256=f22f9a035058d7b4bed75ba0d475f1e15af8d8c4cb4a27e19e96043c08fd1c88
-    https://icons.kubai.design/api/icon/list-checks.svg?color=A39E96&variant=soft&size=96
-  eraser.svg  color=#A39E96  sha256=7b375cb616af8799aa025d0540e9dd73afa9c417d4130505e83ed878be0f15bb
-    https://icons.kubai.design/api/icon/eraser.svg?color=A39E96&variant=soft&size=96
-  rotate-cw.svg  color=#A39E96  sha256=0318bd68986adb4e90b7a01dd6a85c4e78cbd4f5563b226796411995ab5202d5
-    https://icons.kubai.design/api/icon/rotate-cw.svg?color=A39E96&variant=soft&size=96
-  folder-plus.svg  color=#D8A45A  sha256=b4a1cfebf78d7f29d1fdaa03526926ac8c8692bed0b492436f6669ef13dff5cc
-    https://icons.kubai.design/api/icon/folder-plus.svg?color=D8A45A&variant=soft&size=96
-  images.svg  color=#A39E96  sha256=9607ffa0d7a88066418f1cb2d1bb9efe0fc653ca062139fd74124f340b78f125
-    https://icons.kubai.design/api/icon/images.svg?color=A39E96&variant=soft&size=96
-  wifi-alert.svg  color=#E09040  sha256=15975dd25988e8477d6a005e582551ab8c00a56b95b21c281911baa85ee2a436
-    https://icons.kubai.design/api/icon/wifi-alert.svg?color=E09040&variant=soft&size=96
-  circle-check.svg  color=#7EA77A  sha256=abfabdf88c2b9fae6234ae621b99791e99ab836734a7a02037a8d22a53a2343f
-    https://icons.kubai.design/api/icon/circle-check.svg?color=7EA77A&variant=soft&size=96
-  circle-minus.svg  color=#A39E96  sha256=ccfffcc2b18c7e918246d9e5b50ddaf372bdf4d8cd4778fc47b7ed9f7139bda0
-    https://icons.kubai.design/api/icon/circle-minus.svg?color=A39E96&variant=soft&size=96
-  circle-alert.svg  color=#E09040  sha256=12dd7d4bea6537890e89c2bb5cb7953b7780bf2fbbe51c15212cf284f9ad67aa
-    https://icons.kubai.design/api/icon/circle-alert.svg?color=E09040&variant=soft&size=96
-  circle-x.svg  color=#D67A76  sha256=bc05d06ebea17fe04a3221e8631dab94048fbcfa1dc5d355b7eea56e363b1125
-    https://icons.kubai.design/api/icon/circle-x.svg?color=D67A76&variant=soft&size=96
-  folder.svg  color=#A39E96  sha256=d3a61d3198ff3af1e4101e2242814ca9582540f2fedc1984a06784347be1ff4d
-    https://icons.kubai.design/api/icon/folder.svg?color=A39E96&variant=soft&size=96
-  save.svg  color=#A39E96  sha256=b07a0762c006a6e3bfebc4ff62b819b8be80a098b3e25aa8a2af59b6f0011921
-    https://icons.kubai.design/api/icon/save.svg?color=A39E96&variant=soft&size=96
-  trash.svg  color=#D67A76  sha256=93141e9cc70a6e627bc226277d1f734227bb567fa4e2d66e65d2a22a4e693589
-    https://icons.kubai.design/api/icon/trash.svg?color=D67A76&variant=soft&size=96
-  camera.svg  color=#A39E96  sha256=591f12dd610f65b9319b3cb05f36b67fa69df2aea8325aa73f29527476fd8c6a
-    https://icons.kubai.design/api/icon/camera.svg?color=A39E96&variant=soft&size=96
-  wifi-on-accent.svg  color=#161513  sha256=a38908fa049c2a3b16863d1c5195f5fda3e9abb379f77f0b2029fab681f9a034
+  settings.svg  color=#A39E96  variant=color  sha256=5007048fae7dc6decce47c3902bfa9c02e88d6710851d09e8c415545ca74cf4e
+    https://icons.kubai.design/api/icon/settings.svg?color=A39E96&variant=color&size=96
+  wifi.svg  color=#D8A45A  variant=color  sha256=a860a020f132e66860a81311e809b17f6bdbee73695ec05e9b86c4ec7ade9725
+    https://icons.kubai.design/api/icon/wifi.svg?color=D8A45A&variant=color&size=96
+  loader.svg  color=#A39E96  variant=color  sha256=3d03daee4f4bbff7cbe5863093106924a0f817d1fb2b6f1ce718690fa8e3e4c8
+    https://icons.kubai.design/api/icon/loader.svg?color=A39E96&variant=color&size=96
+  wifi-check.svg  color=#7EA77A  variant=color  sha256=abc5a42421c2003fa361904f16108d71dd2ab5870a30e7d1fbc3b802ecdb3308
+    https://icons.kubai.design/api/icon/wifi-check.svg?color=7EA77A&variant=color&size=96
+  wifi-cog.svg  color=#E09040  variant=color  sha256=f10a207671133085ec0824e71d6c814858baa9379a9accea2514cd7d643a4e7c
+    https://icons.kubai.design/api/icon/wifi-cog.svg?color=E09040&variant=color&size=96
+  wifi-x.svg  color=#D67A76  variant=color  sha256=e68673dcfd91bf1a6cb67d887e8718dc4378d6a6219048aec11470803b8a5143
+    https://icons.kubai.design/api/icon/wifi-x.svg?color=D67A76&variant=color&size=96
+  wifi-off.svg  color=#A39E96  variant=color  sha256=818aebc5eed082a174389ea82dfd90f8cf0a83b358b6ad17ac1d86a015c583e3
+    https://icons.kubai.design/api/icon/wifi-off.svg?color=A39E96&variant=color&size=96
+  arrow-left-right.svg  color=#A39E96  variant=color  sha256=56df98c2358ff65bf32cc3ca87034ad816696253a9e4d6ad5c34aa46675af7a4
+    https://icons.kubai.design/api/icon/arrow-left-right.svg?color=A39E96&variant=color&size=96
+  download.svg  color=#D8A45A  variant=color  sha256=e6f15a1f239bdd54a615242547205e2b4d03aec6aa209398a876917de127e4f0
+    https://icons.kubai.design/api/icon/download.svg?color=D8A45A&variant=color&size=96
+  folder-down.svg  color=#A39E96  variant=color  sha256=4881e0df76de87c6f459e2b1151754ca7204dd6957d3dccb01e63e7eaee9161a
+    https://icons.kubai.design/api/icon/folder-down.svg?color=A39E96&variant=color&size=96
+  list-checks.svg  color=#A39E96  variant=color  sha256=eb83fa73ec6f49effe2616e941efe39fec8f6404977b0bd39bed6332eb4ec154
+    https://icons.kubai.design/api/icon/list-checks.svg?color=A39E96&variant=color&size=96
+  eraser.svg  color=#A39E96  variant=color  sha256=72ee3e6c3bbac38881aecfbda1c330d31e7118c6a1b7222052f7c1ec9c8c41f4
+    https://icons.kubai.design/api/icon/eraser.svg?color=A39E96&variant=color&size=96
+  rotate-cw.svg  color=#A39E96  variant=color  sha256=1d672e59ff0c2ee7cbe12db63a77d5b063e1d713adc74b9bb6d6b4b28bc82101
+    https://icons.kubai.design/api/icon/rotate-cw.svg?color=A39E96&variant=color&size=96
+  folder-plus.svg  color=#D8A45A  variant=color  sha256=e07cf2cd14244bfeb07f8eaf3f21bbe4ebcd5de2f569ce9c2d0d2ae24f330558
+    https://icons.kubai.design/api/icon/folder-plus.svg?color=D8A45A&variant=color&size=96
+  images.svg  color=#A39E96  variant=color  sha256=6a47595948999028346e1030114ebfe0a7038e14c2b33a74ad71a39cc9c243b8
+    https://icons.kubai.design/api/icon/images.svg?color=A39E96&variant=color&size=96
+  wifi-alert.svg  color=#E09040  variant=color  sha256=39fca50ca11fd342b5f7e2a3c51a8a98dad96b28ab6fe4a5947aa9ef84dd4a1a
+    https://icons.kubai.design/api/icon/wifi-alert.svg?color=E09040&variant=color&size=96
+  circle-check.svg  color=#7EA77A  variant=color  sha256=da13df646a3d5ebe3bfe47309026c2d5fa3933cb10b3bb45337971ce79d10a03
+    https://icons.kubai.design/api/icon/circle-check.svg?color=7EA77A&variant=color&size=96
+  circle-minus.svg  color=#A39E96  variant=color  sha256=3a706f1409f7b63b002e9dc2e697675f6701967a8d44a6976fcf0f8f9d7d8858
+    https://icons.kubai.design/api/icon/circle-minus.svg?color=A39E96&variant=color&size=96
+  circle-alert.svg  color=#E09040  variant=color  sha256=9adee6c0ff5147e84c9accf8a1f8505bfb3772a345988de9ceca69c64f43edeb
+    https://icons.kubai.design/api/icon/circle-alert.svg?color=E09040&variant=color&size=96
+  circle-x.svg  color=#D67A76  variant=color  sha256=d78dc8acc14271bbb7a98184468df96587cefbc549b7e50bcf2c8f330bad7978
+    https://icons.kubai.design/api/icon/circle-x.svg?color=D67A76&variant=color&size=96
+  folder.svg  color=#A39E96  variant=color  sha256=59828b4838c9cb37ce1ab38ae48239b991995ae45d0751e859239646c4e19529
+    https://icons.kubai.design/api/icon/folder.svg?color=A39E96&variant=color&size=96
+  save.svg  color=#A39E96  variant=color  sha256=fa7d0416414c4253a9a1fd162b8323c14b36adce3f73dbb95c5ac4b65e5d15a8
+    https://icons.kubai.design/api/icon/save.svg?color=A39E96&variant=color&size=96
+  trash.svg  color=#D67A76  variant=color  sha256=0c0fed228cd1358f67810f0c033fac28654ec39754e93afe13a32d62450a4a57
+    https://icons.kubai.design/api/icon/trash.svg?color=D67A76&variant=color&size=96
+  camera.svg  color=#A39E96  variant=color  sha256=7a6be50ecf8752e6d9d16e61930d0b85d6cc8babdcf82ba91b8028ae3219529b
+    https://icons.kubai.design/api/icon/camera.svg?color=A39E96&variant=color&size=96
+  wifi-on-accent.svg  color=#161513  variant=soft  sha256=a38908fa049c2a3b16863d1c5195f5fda3e9abb379f77f0b2029fab681f9a034
     https://icons.kubai.design/api/icon/wifi.svg?color=161513&variant=soft&size=96
-  download-on-accent.svg  color=#161513  sha256=567f1e2d509171ccab165bf5025981f8f19c0d81de52299c565d65f0b5700010
+  download-on-accent.svg  color=#161513  variant=soft  sha256=567f1e2d509171ccab165bf5025981f8f19c0d81de52299c565d65f0b5700010
     https://icons.kubai.design/api/icon/download.svg?color=161513&variant=soft&size=96
-  folder-plus-on-accent.svg  color=#161513  sha256=dd53f5c1c6444b88638f9459e4c0f1ad479adbfd85602990eb76c052564b3464
+  folder-plus-on-accent.svg  color=#161513  variant=soft  sha256=dd53f5c1c6444b88638f9459e4c0f1ad479adbfd85602990eb76c052564b3464
     https://icons.kubai.design/api/icon/folder-plus.svg?color=161513&variant=soft&size=96
