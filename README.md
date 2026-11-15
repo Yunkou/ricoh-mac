@@ -44,7 +44,7 @@ nsh package --target macos
 nsh run --target macos
 ```
 
-The same steps are also available as `make check`, `make test`, `make package`, and `make clippy`. `nsh package --target macos` writes an ad hoc signed app at `.nsh/out/ricoh-mac.app`.
+The same steps are also available as `make check`, `make test`, `make package`, and `make clippy`. `nsh package --target macos` writes an ad hoc signed app at `.nsh/out/ricoh-mac.app`. `make dist` rebuilds that app and writes a versioned zip and SHA-256 checksum under `dist/`.
 
 Native Shell requires the TSX entry `App.tsx` to sit beside `nsh.json` at the application root (the same directory as the Rust crate, which `nsh.json` names with `"rust": "."`). That entry only mounts the interface. The interface itself lives under `ui/`: `ui/App.tsx` composes the shell, `ui/components/` holds the views, `ui/state/` holds signals and flows, and `ui/lib/` holds helpers. Tests are `*.test.ts` / `*.test.tsx` files beside the code they cover, for example `ui/App.test.tsx` and `ui/lib/thumb-loader.test.ts`.
 
@@ -62,3 +62,36 @@ cargo run --bin mock-camera
 The fixture listens on `http://127.0.0.1:8080` by default (pass a bind address to change it). In Settings, set the camera address to that origin, then use the on-screen actions labeled 连接相机, 导入已选, or 全部导入. The fixture is for development and tests only; it is not a real camera.
 
 On first launch, choose a library folder. To connect a real GR IIIx, turn on the camera wireless LAN. The first time, save the SSID and password shown on the camera (or confirm the current network if the Mac is already joined). The password is stored in the macOS Keychain. Later, Connect Camera switches to that network automatically and, after import, switches back to the previous network by default. macOS may ask for Location Services so the app can read the current SSID; you can decline and type the name instead. The first Keychain write may also ask for permission. If automatic switching fails, join the camera network in System Settings and try again. If the Mac still needs internet while it is on the camera network, use Ethernet or iPhone USB tethering. If a proxy such as Clash Verge is in TUN mode and hijacks `192.168.0.1`, exclude that address from the proxy.
+
+## Releases
+
+Version 1 GitHub Releases provide an ad hoc signed macOS application. They are not notarized and they are not signed with a Developer ID.
+
+The application version is the same string in `nsh.json` (`version`) and in `Cargo.toml` (`package.version`). A release tag must be that string with a `v` prefix: version `0.1.0` is tagged `v0.1.0`. A prerelease follows the same rule, so version `0.1.0-rc.1` is tagged `v0.1.0-rc.1`. The release workflow fails if the tag and the two files are not identical.
+
+To publish a release:
+
+1. Set the same version in `nsh.json` and `Cargo.toml`, including any prerelease suffix such as `-rc.1` or `-beta.1`.
+2. Commit the change on `main`.
+3. Create an annotated tag and push it:
+
+```sh
+git tag -a v0.1.0 -m "v0.1.0"
+git push origin v0.1.0
+```
+
+Pushing a tag that matches `v*` starts the Release workflow. The workflow runs `nsh check`, `nsh test`, and `cargo fmt` / `clippy` with `RICOH_MAC_NO_WIFI_SWITCH=1`, packages the application for macOS on an arm64 runner, and publishes a GitHub Release. The archive is named `ricoh-mac-<tag>-macos-arm64.zip` and is accompanied by a SHA-256 file. Tags whose version has a suffix such as `-rc` or `-beta` are published as prereleases. Re-running the workflow for an existing tag updates that Release and replaces the uploaded files.
+
+To rebuild the archive and checksum on an arm64 Mac without publishing:
+
+```sh
+make dist
+```
+
+By default this writes `dist/ricoh-mac-v<version>-macos-arm64.zip` and `dist/ricoh-mac-v<version>-macos-arm64.zip.sha256`, using the version from the files above. Pass `TAG=v0.1.0` to require a specific tag name.
+
+After unzipping a downloaded build, macOS may block the first launch. Right-click `ricoh-mac.app` and choose Open, or remove the quarantine attribute:
+
+```sh
+xattr -dr com.apple.quarantine ricoh-mac.app
+```

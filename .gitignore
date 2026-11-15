@@ -7,3 +7,6 @@ target/
 # Reinstall locally with `npx impeccable install` when needed. Do not commit.
 .cursor/
 .grok/
+
+# Local and CI release archives created by `make dist`.
+dist/
