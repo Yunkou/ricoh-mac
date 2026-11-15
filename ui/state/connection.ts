@@ -1,6 +1,10 @@
-import { copy } from "./copy";
-import { color } from "./theme";
-import type { FileStatus } from "./photo-grid";
+import { copy } from "../copy";
+import { color } from "../theme";
+
+export type FileStatus = "pending" | "imported" | "skipped" | "conflict" | "error";
+
+export type PressModifiers = { modifiers?: { shift?: boolean } };
+
 
 export type ConnectionState =
   | { kind: "idle" }

@@ -83,4 +83,4 @@
 
 ## 源码中的 token
 
-TypeScript token 写在 `theme.ts`，由 `App.tsx` 使用。界面文案写在 `copy.ts`。
+TypeScript token 写在 `ui/theme.ts`，由 `ui/` 下的界面使用。界面文案写在 `ui/copy.ts`。

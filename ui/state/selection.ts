@@ -1,4 +1,4 @@
-import { grid } from "./theme";
+import { grid } from "../theme";
 
 export type SelectionMap = Record<string, boolean>;
 

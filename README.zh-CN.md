@@ -46,6 +46,8 @@ nsh run --target macos
 
 上述步骤也可通过 `make check`、`make test`、`make package`、`make clippy` 执行。`nsh package --target macos` 会在 `.nsh/out/ricoh-mac.app` 写出 ad hoc 签名的应用。
 
+Native Shell 要求 TSX 入口 `App.tsx` 与 `nsh.json` 同处于应用根目录（也是 Rust crate 所在目录，由 `nsh.json` 的 `"rust": "."` 指向）。该入口只负责挂载界面。界面本身在 `ui/` 中：`ui/App.tsx` 组合外壳，`ui/components/` 存放视图，`ui/state/` 存放信号与流程，`ui/lib/` 存放辅助模块。测试是紧挨被测代码的 `*.test.ts` / `*.test.tsx`，例如 `ui/App.test.tsx` 与 `ui/lib/thumb-loader.test.ts`。
+
 开发期覆盖项：
 
 - `RICOH_MAC_NO_WIFI_SWITCH`：只要设置了该环境变量（任意值即可），应用不会切换系统 Wi-Fi。在对着模拟服务开发，或电脑已经加入相机网络时使用。

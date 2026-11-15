@@ -1,6 +1,6 @@
 import { Text, View } from "nsh";
-import type { ButtonKind } from "./connection";
-import { color, focusRing, radius, space, type } from "./theme";
+import type { ButtonKind } from "../state/connection";
+import { color, focusRing, radius, space, type } from "../theme";
 
 export type { ButtonKind };
 

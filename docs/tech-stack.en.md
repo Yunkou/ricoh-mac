@@ -257,8 +257,8 @@ The toolchain used for Milestone 1 is **NSH 0.5.1** (`nsh 0.5.1 (224d9a7)`), ins
 
 The mixed app lives in the repository root:
 
-- `App.tsx` is the TSX UI. It uses a fixed dark appearance and a warm amber accent, with no product-name header and no persistent sidebar. A circular corner button opens settings only. Photographs are shown in a virtualized thumbnail grid through `List` `numColumns`. Visual tokens live in `theme.ts`, copy in `copy.ts`, and selection helpers in `selection.ts`. The design record is in `DESIGN.md` and `PRODUCT.md` at the repository root.
-- `src/lib.rs` exports two Rust modules to TSX as `ricoh-mac/native`: `Library` and `Camera`.
+- `App.tsx` is the TSX entry required by Native Shell: it sits beside `nsh.json` and only mounts the app. The interface lives under `ui/`. `ui/App.tsx` composes the shell; `ui/components/` holds the views; `ui/state/` holds signals and flows; `ui/lib/` holds helpers such as the thumbnail loader. The app uses a fixed dark appearance and a warm amber accent, with no product-name header and no persistent sidebar. A circular corner button opens settings only. Photographs are shown in a virtualized thumbnail grid through `List` `numColumns`. Visual tokens live in `ui/theme.ts`, copy in `ui/copy.ts`, and selection helpers in `ui/state/selection.ts`. The design record is in `DESIGN.md` and `PRODUCT.md` at the repository root.
+- `src/lib.rs` exports Rust modules to TSX as `ricoh-mac/native`: `Library`, `Camera`, and `Wifi`.
 - `src/config.rs` stores the library folder and camera base URL in `config.json` under `data_dir()`, written with a temporary file and an atomic rename.
 - `src/camera.rs` is the read-only HTTP client: `GET /v1/ping`, `GET /v1/props`, `GET /v1/photos`, original-file download, and optional `size=thumb`. It does not issue POST or PUT requests. The default origin is `http://192.168.0.1` and can be changed in the UI for development.
 - `src/importer.rs` writes into the single library folder, keeps original file names, uses a `.partial` temporary file, skips name-and-size matches, and reports same-name conflicts without overwriting.

@@ -83,4 +83,4 @@ State changes may use a short 150–250 ms transition. Motion is not decorative.
 
 ## Source tokens
 
-TypeScript tokens live in `theme.ts` and are consumed by `App.tsx`. Interface copy lives in `copy.ts`.
+TypeScript tokens live in `ui/theme.ts` and are consumed by the interface under `ui/`. Interface copy lives in `ui/copy.ts`.

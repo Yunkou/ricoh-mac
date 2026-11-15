@@ -1,6 +1,6 @@
 import { expect, open, test } from "nsh/test";
 import type { ConnectResult, ImportProgress, ImportReport, PhotoItem, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
-import { applyRange, columnCount, selectAll, selectedCount, selectedIds, toggleId } from "./selection";
+import { applyRange, columnCount, selectAll, selectedCount, selectedIds, toggleId } from "./state/selection";
 
 const samplePhotos = [
   { id: "100RICOH/R0000001.JPG", folder: "100RICOH", file: "R0000001.JPG", size: 1200, thumbnailPath: null },
@@ -161,7 +161,7 @@ function postProgress(onProgress: unknown, event: ImportProgress) {
 
 
 function launch(moduleOverrides?: Parameters<typeof modules>[0]) {
-  return open("./App.tsx", {
+  return open("../App.tsx", {
     colorScheme: "dark",
     platform: "macos",
     width: 1000,

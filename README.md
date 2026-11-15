@@ -46,6 +46,8 @@ nsh run --target macos
 
 The same steps are also available as `make check`, `make test`, `make package`, and `make clippy`. `nsh package --target macos` writes an ad hoc signed app at `.nsh/out/ricoh-mac.app`.
 
+Native Shell requires the TSX entry `App.tsx` to sit beside `nsh.json` at the application root (the same directory as the Rust crate, which `nsh.json` names with `"rust": "."`). That entry only mounts the interface. The interface itself lives under `ui/`: `ui/App.tsx` composes the shell, `ui/components/` holds the views, `ui/state/` holds signals and flows, and `ui/lib/` holds helpers. Tests are `*.test.ts` / `*.test.tsx` files beside the code they cover, for example `ui/App.test.tsx` and `ui/lib/thumb-loader.test.ts`.
+
 Development overrides:
 
 - `RICOH_MAC_NO_WIFI_SWITCH` — when this environment variable is set to any value, the app does not switch the system Wi-Fi. Use it while developing against the mock fixture, or when the Mac is already on the camera network.
