@@ -11,6 +11,8 @@ pub mod mock_camera;
 mod profile;
 mod wifi;
 
+#[cfg(test)]
+mod icon_assets;
 
 use std::path::{Path, PathBuf};
 
