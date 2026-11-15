@@ -6,6 +6,7 @@ mod format;
 mod histogram;
 mod makernote;
 mod preview;
+mod raw;
 mod tiff;
 
 use std::fs;
@@ -412,7 +413,23 @@ fn gps_rationals(exif: &Exif, tag: Tag) -> Option<Vec<f64>> {
     }
 }
 
-/// True when `path` resolves inside `library` after canonicalization.
+pub use raw::cache_dir as raw_cache_dir;
+pub use raw::{RawPreview, develop_raw_preview};
+
+/// Develop a library DNG through CIRAWFilter into a display raster and histogram.
+///
+/// The original photograph is only read. Paths outside `library` are rejected.
+pub fn develop_library_raw_preview(
+    library: &Path,
+    path: &Path,
+    cache_dir: &Path,
+) -> Result<RawPreview, AppError> {
+    if !is_inside_library(library, path) {
+        return Err(AppError::msg("找不到这张照片。"));
+    }
+    develop_raw_preview(path, cache_dir)
+}
+
 /// Look up a cached embedded preview without reading the DNG body.
 pub fn cached_preview_file(path: &Path, cache_dir: &Path) -> Option<PathBuf> {
     preview::cached_for_file(path, cache_dir)
@@ -432,6 +449,7 @@ pub fn load_library_preview(
     preview::load_cached_jpeg(path, cache_dir)
 }
 
+/// True when `path` resolves inside `library` after canonicalization.
 pub fn is_inside_library(library: &Path, path: &Path) -> bool {
     let Ok(root) = library.canonicalize() else {
         return false;

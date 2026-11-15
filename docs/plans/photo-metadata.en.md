@@ -1,6 +1,6 @@
 # Photographer information on the detail page
 
-This document describes which information to show a photographer on the detail page, how those values are typically stored in GR IIIx JPEG and DNG files, and how far the app can go without decoding RAW pixels. The photographer panel described here is implemented. Standard Exif is read with kamadak-exif. Ricoh MakerNote fields are parsed by a small dedicated reader. The mapping follows public specifications and ExifTool's Ricoh and Pentax tag documentation. On 15 November 2026 (Asia/Shanghai) it was checked against public, out-of-camera GR IIIx JPEG and DNG files. Real IIIx files use a compact Pentax-layout MakerNote; the older Ricoh 0x10xx layout remains supported for fixtures. Verified and unverified fields are listed in [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md). Labels for fields that those samples did not cover are not treated as final.
+This document describes which information to show a photographer on the detail page, how those values are typically stored in GR IIIx JPEG and DNG files, and which image each preview and histogram comes from. The photographer panel described here is implemented. The detail page can also show a RAW-developed preview of a local DNG, as described below. Standard Exif is read with kamadak-exif. Ricoh MakerNote fields are parsed by a small dedicated reader. The mapping follows public specifications and ExifTool's Ricoh and Pentax tag documentation. On 15 November 2026 (Asia/Shanghai) it was checked against public, out-of-camera GR IIIx JPEG and DNG files. Real IIIx files use a compact Pentax-layout MakerNote; the older Ricoh 0x10xx layout remains supported for fixtures. Verified and unverified fields are listed in [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md). Labels for fields that those samples did not cover are not treated as final.
 
 ## Information to show
 
@@ -56,7 +56,7 @@ The following items are usually stored in the MakerNote, not in standard Exif:
 
 Real GR IIIx JPEG and DNG files examined on 15 November 2026 store these values in a compact Pentax-layout MakerNote, which ExifTool documents in its Pentax table (`ImageTone`, `FocusMode`, `NeutralDensityFilter`, and related tags). The older ExifTool Ricoh table records `CropMode` as Off, 35 mm, or 47 mm, which matches the GR III crop settings and was not the layout of those IIIx files. The GR IIIx crop settings remain 50 mm and 71 mm. The panel must not label a GR IIIx file as 35 mm or 47 mm. When no Ricoh `CropMode` tag is present, the app may follow the standard 35 mm equivalent (40 / 50 / 71). Public samples confirmed only the uncropped 40 mm case. See [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md).
 
-DNG files often also carry an embedded JPEG preview. That preview can be used to show the photograph on the detail page, and to estimate a histogram without a RAW decode. A preview is not the sensor sample. If the histogram is built from it, the panel should say so.
+DNG files often also carry an embedded JPEG preview. The album grid uses only that embedded preview. The detail page can show the embedded preview, or it can build a display image from the DNG sensor data through system Core Image `CIRAWFilter.outputImage`. An embedded preview is not the sensor sample. A RAW develop is a color-managed rendered image, not linear sensor data. The histogram must be computed from the image actually shown, and labeled by source: embedded preview, RAW develop, or original JPEG.
 
 ## Rust crates and licenses
 
@@ -66,29 +66,30 @@ DNG files often also carry an embedded JPEG preview. That preview can be used to
 | [rexif](https://crates.io/crates/rexif) 0.7.6 | MIT | Reads Exif from JPEG and TIFF | A reasonable alternative with a similar first-phase scope, and a smaller ecosystem than kamadak-exif. |
 | [little_exif](https://crates.io/crates/little_exif) | MIT or Apache-2.0 | Reads and writes Exif in several formats | Also permissively licensed. This feature only needs reads, so write support is not a reason to add it. Its DNG behavior needs a separate check, and should not be assumed to match JPEG. |
 | [image](https://crates.io/crates/image) | MIT or Apache-2.0 | Decodes JPEG and other rasters into pixels | Use it for JPEG histograms, and to decode a JPEG preview extracted from a DNG. |
-| [rawler](https://crates.io/crates/rawler) 0.8.0 | LGPL-2.1 | Decodes camera RAW files and reads their metadata | It can produce true DNG pixels and a RAW histogram, but LGPL-2.1 creates obligations for an app that is shipped mainly as a statically linked package. If it is adopted later, those obligations have to be decided first. Do not add it without that review. |
+| [rawler](https://crates.io/crates/rawler) 0.8.0 | LGPL-2.1 | Decodes camera RAW files and reads their metadata | Not used. LGPL-2.1 would create obligations for an app that is shipped mainly as a statically linked package. Detail-page RAW develop uses system Core Image `CIRAWFilter` instead, linking system frameworks only and not redistributing the Apple SDK. |
+| `cc` 1.x and `native/ricoh_raw.m` in this repository | MIT or Apache-2.0 (`cc`); project-owned Objective-C interface | Compiles and statically links a narrow `CIRAWFilter` wrapper on macOS | Adopted. No extra dylib or SDK is shipped. |
 | [gamut-dng](https://crates.io/crates/gamut-dng) | MIT or Apache-2.0 | Encodes and decodes DNG to the specification | The license is permissive, but the project is new and little used. It is not a first-phase dependency. |
 
-The first phase should use kamadak-exif for standard Exif. A small dedicated parser should read only the Ricoh MakerNote fields listed above. JPEG histograms should be computed from pixels decoded by `image`. DNG previews and preview-based histograms should come from a read-only TIFF/DNG preview extractor, without rawler and without demosaicing the CFA.
+Standard Exif is read with kamadak-exif. A small dedicated parser reads only the Ricoh MakerNote fields listed above. JPEG histograms are computed from original pixels decoded by `image`. Embedded DNG previews, and histograms computed from them, come from a read-only TIFF/DNG preview extractor. Detail-page RAW develop and the rendered histogram use system `CIRAWFilter.outputImage`. rawler is not used.
 
 Do not call or bundle ExifTool in order to read metadata. The app should keep reading the user's photographs and should not write back to JPEG or DNG files.
 
-## What is feasible without a RAW decode
+## What previews and histograms can already do
 
 Feasible now:
 
 - Reading standard exposure fields, focal length and its 35 mm equivalent, color space, date and time, file size and format, and optional GPS, from both JPEG and DNG
 - Showing Image Control, focus (including Snap when present), crop, and ND from the MakerNote layouts confirmed against public GR IIIx JPEG and DNG files. Fields those samples did not cover are listed in [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md) and are not treated as final
 - Showing the detail image for previewable JPEGs, with a histogram computed from the original pixels
-- If a DNG embedded preview can be extracted, showing that preview and a histogram computed from it, labeled as such
+- If a DNG embedded preview can be extracted, the album grid and the detail page can show that preview, with a histogram computed from it and labeled as such
+- The detail page can develop a display image from local DNG sensor data, compute a rendered-image histogram from that same output, and label the source. The display raster may be downsampled for the UI. It is not an upgrade of the embedded preview
 
-Leave for later work:
+Still not provided:
 
-- A detailed, inspectable view of the DNG original (the album still shows a "can't preview" placeholder for DNG)
-- A histogram computed from DNG sensor data
-- A waveform or RAW-level histogram that reflects linear RAW values
+- A waveform or linear sensor histogram that reflects linear RAW values
+- A systematic check that Apple's default develop matches in-camera Image Control and white balance
 
-Those items belong with a later RAW preview effort, not with the photographer information panel. The album grid uses the same read-only embedded JPEG extraction for DNG thumbnails. That is not a sensor-level RAW decode. Using rawler for a true RAW decode requires a decision on LGPL-2.1 first. macOS ImageIO, or another decoder, remains an option for a later sensor-level preview after a license review.
+The album grid still uses only the read-only embedded JPEG extraction for DNG thumbnails. rawler is not used. The license conclusion is recorded in [the tech stack](../tech-stack.en.md), section 7.
 
 ## Layout
 
@@ -103,7 +104,7 @@ The shortcut list still opens with `?`. It does not share the photographer infor
 1. The detail page is in place, and photographer information sits in the right-hand panel.
 2. kamadak-exif and a dedicated MakerNote parser are in the same crate. The panel shows standard exposure fields, focal length, color space, date and time, and optional GPS, together with Image Control, focus (including Snap), crop, ND, and color temperature. Crop on GR IIIx files is labeled 40 mm when off, or 50 mm or 71 mm when cropped. It does not use ExifTool's GR III CropMode labels of 35 mm and 47 mm. Real IIIx files use a compact Pentax-layout MakerNote; the older Ricoh 0x10xx layout remains supported. Public-sample coverage and remaining gaps are recorded in [gr-iiix-makernote-verification.en.md](gr-iiix-makernote-verification.en.md).
 3. A histogram is computed from original JPEG pixels. For a DNG with an extracted embedded preview, the histogram is computed from that preview and labeled as such.
-4. A RAW original preview and a sensor-data histogram remain for a later version, with a separate decision on the decoder and its license.
+4. The detail page can already develop a local DNG through `CIRAWFilter.outputImage` and compute a rendered-image histogram from that same output. A linear sensor histogram and a waveform are still not provided.
 
 ## Decisions already made
 
@@ -115,4 +116,4 @@ The implementation uses kamadak-exif with a dedicated MakerNote parser. The info
 
 ## Remaining decisions
 
-- Whether a later true DNG pixel histogram should accept rawler's LGPL-2.1 license, or use a system API such as ImageIO.
+- Whether and when to offer a linear sensor histogram or waveform. The decoder and license are settled: use system `CIRAWFilter`, and do not add rawler.

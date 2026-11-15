@@ -197,7 +197,11 @@ function Histogram(props: {
           fontWeight: font.emphasis,
         }}
       >
-        {props.histogram()?.source === "preview" ? copy.histogramPreview : copy.histogram}
+        {props.histogram()?.source === "raw"
+          ? copy.histogramRaw
+          : props.histogram()?.source === "preview"
+            ? copy.histogramPreview
+            : copy.histogram}
       </Text>
       <Canvas
         testID="photo-histogram-canvas"

@@ -1,6 +1,6 @@
 # 照片详情中的拍摄信息
 
-本文说明在详情页中向摄影师展示哪些信息、这些信息在 GR IIIx 的 JPEG 与 DNG 中通常如何保存，以及在不解码 RAW 像素的前提下可以做到哪一步。文中描述的拍摄信息面板已经实现。标准 Exif 使用 kamadak-exif 读取。Ricoh MakerNote 字段由一小段专用解析读取。映射依据公开规格以及 ExifTool 的 Ricoh 与 Pentax 标签说明，并于 2026 年 11 月 15 日（Asia/Shanghai）对照公开的机内直出 GR IIIx JPEG 与 DNG 做过核对。实拍 IIIx 文件使用紧凑的 Pentax 布局 MakerNote；旧的 Ricoh 0x10xx 布局仍用于夹具。已验证与未验证的字段见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。公开样本未覆盖的字段，其界面文案仍不视为最终结果。
+本文说明在详情页中向摄影师展示哪些信息、这些信息在 GR IIIx 的 JPEG 与 DNG 中通常如何保存，以及预览和直方图分别来自哪些图像。文中描述的拍摄信息面板已经实现。详情页还可以对本地 DNG 做 RAW 显影预览，见下文。标准 Exif 使用 kamadak-exif 读取。Ricoh MakerNote 字段由一小段专用解析读取。映射依据公开规格以及 ExifTool 的 Ricoh 与 Pentax 标签说明，并于 2026 年 11 月 15 日（Asia/Shanghai）对照公开的机内直出 GR IIIx JPEG 与 DNG 做过核对。实拍 IIIx 文件使用紧凑的 Pentax 布局 MakerNote；旧的 Ricoh 0x10xx 布局仍用于夹具。已验证与未验证的字段见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。公开样本未覆盖的字段，其界面文案仍不视为最终结果。
 
 ## 要展示的信息
 
@@ -56,7 +56,7 @@ GR IIIx 可记录 JPEG、DNG，或 RAW+JPEG。官方规格写明：静止图像�
 
 2026 年 11 月 15 日核过的实拍 GR IIIx JPEG 与 DNG，把这些值写在紧凑的 Pentax 布局 MakerNote 中，ExifTool 在其 Pentax 表里记载为 `ImageTone`、`FocusMode`、`NeutralDensityFilter` 等。ExifTool 较旧的 Ricoh 表将 `CropMode` 记为「关 / 35 mm / 47 mm」，这对应 GR III 的裁切档位，并非上述 IIIx 文件的布局。GR IIIx 的裁切档位仍是 50 mm 和 71 mm。显示时不得把 GR IIIx 文件标成 35 mm 或 47 mm。当不存在 Ricoh `CropMode` 标签时，应用可依标准 35 mm 换算（40 / 50 / 71）推断。公开样本只确认了未裁切的 40 mm。详见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。
 
-DNG 往往还带有内嵌 JPEG 预览。预览可以用于详情页中的显示，以及在不进行 RAW 解码的情况下估算直方图。预览并不是传感器上的原始采样，若用它画直方图，需要标明这是根据预览生成的。
+DNG 往往还带有内嵌 JPEG 预览。相册网格只使用这一嵌入预览。详情页可以显示嵌入预览，也可以通过系统 Core Image `CIRAWFilter.outputImage` 从 DNG 传感器数据生成显示用画面。嵌入预览不是传感器采样；RAW 显影结果是经过色彩管理的渲染图像，也不是线性传感器数据。直方图必须按实际使用的那一张图像计算，并标明来源：嵌入预览、RAW 显影，或 JPEG 原图。
 
 ## 可用的 Rust 库与许可
 
@@ -66,29 +66,30 @@ DNG 往往还带有内嵌 JPEG 预览。预览可以用于详情页中的显示�
 | [rexif](https://crates.io/crates/rexif) 0.7.6 | MIT | 读取 JPEG 与 TIFF 的 Exif | 可作为备选，能力与第一阶段需求相近，生态小于 kamadak-exif。 |
 | [little_exif](https://crates.io/crates/little_exif) | MIT 或 Apache-2.0 | 读写多种格式的 Exif | 许可同样宽松。本功能只需要读取，不必为了写入而引入它。它对 DNG 的支持需要单独验证，不能事先假定与 JPEG 完全相同。 |
 | [image](https://crates.io/crates/image) | MIT 或 Apache-2.0 | 解码 JPEG 等栅格图并取像素 | 用于 JPEG 直方图，以及解码从 DNG 中抽出的预览。 |
-| [rawler](https://crates.io/crates/rawler) 0.8.0 | LGPL-2.1 | 解码相机 RAW 并读取元数据 | 能做真正的 DNG 像素与 RAW 直方图，但 LGPL-2.1 会给以静态链接为主的应用包带来义务。若以后采用，需要先决定如何满足该许可，不能在未评估的情况下加入。 |
+| [rawler](https://crates.io/crates/rawler) 0.8.0 | LGPL-2.1 | 解码相机 RAW 并读取元数据 | 不采用。LGPL-2.1 会给以静态链接为主的应用包带来义务。详情页的 RAW 显影改用系统 Core Image `CIRAWFilter`，只链接系统框架，不分发 Apple SDK。 |
+| `cc` 1.x 与本仓库 `native/ricoh_raw.m` | MIT 或 Apache-2.0（`cc`）；自有 Objective-C 接口 | 在 macOS 上编译并静态链接狭窄的 `CIRAWFilter` 封装 | 已采用。不随包再分发动态库或 SDK。 |
 | [gamut-dng](https://crates.io/crates/gamut-dng) | MIT 或 Apache-2.0 | 按 DNG 规范编解码 | 许可宽松，但项目较新、使用面很窄，不作为第一阶段的依赖。 |
 
-第一阶段建议使用 kamadak-exif 读取标准 Exif。Ricoh MakerNote 用一小段专用解析来读，并仅覆盖上面列出的几项。JPEG 直方图用 `image` 解码像素后计算。DNG 的预览与直方图用单独的、只读的 TIFF/DNG 预览提取来完成，不引入 rawler，也不对 CFA 做去马赛克。
+标准 Exif 使用 kamadak-exif 读取。Ricoh MakerNote 用一小段专用解析来读，并仅覆盖上面列出的几项。JPEG 直方图用 `image` 解码原图像素后计算。相册网格和详情页的嵌入预览，以及根据嵌入预览计算的直方图，用只读的 TIFF/DNG 预览提取完成。详情页的 RAW 显影与渲染直方图通过系统 `CIRAWFilter.outputImage` 完成，不引入 rawler。
 
 不要为了读元数据而去调用或捆绑 ExifTool。应用继续只读取用户的照片，不写回 JPEG 或 DNG。
 
-## 不解码 RAW 时可以完成的部分
+## 预览与直方图已经可以完成的部分
 
 可以完成：
 
 - 从 JPEG 和 DNG 读取标准拍摄参数、焦距与 35 mm 换算、色彩空间、时间、文件大小与格式，以及可选的 GPS
 - 按已对照公开 GR IIIx JPEG 与 DNG 核对过的 MakerNote 布局，显示图像设定、对焦（文件中有 Snap 时包括 Snap）、裁切和 ND。公开样本未覆盖的字段见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)，其文案仍不视为最终结果
 - 为可预览的 JPEG 显示详情图和根据原图计算的直方图
-- 若 DNG 内嵌预览可用，则显示该预览，并给出根据预览计算的直方图，同时标明数据来源
+- 若 DNG 内嵌预览可用，相册网格和详情页可以显示该预览，并给出根据预览计算的直方图，同时标明数据来源
+- 详情页可以对本地 DNG 从传感器数据显影显示用画面，并根据同一显影结果计算渲染图像直方图，同时标明来源。显示栅格可以为界面降采样，不能冒充嵌入预览的升级
 
-需要以后另做的部分：
+仍未提供的部分：
 
-- 把 DNG 原图作为细节可检视的画面（当前相册对 DNG 仍显示「无法预览」）
-- 根据 DNG 传感器数据计算的直方图
-- 准确反映 RAW 线性数据的波形或 RAW 级别直方图
+- 准确反映 RAW 线性数据的波形或传感器线性直方图
+- 对 Apple 默认显影与机内图像设定、白平衡是否一致的系统验证
 
-这些项目属于后续的 RAW 预览工作，而不是拍摄信息面板的范围。相册网格的 DNG 缩略图复用同一套只读内嵌 JPEG 提取，这不是传感器级 RAW 解码。若要用 rawler 做真正的 RAW 解码，须先确认 LGPL-2.1 的处理方式。macOS ImageIO 或其他解码库，可作为后续传感器级预览的备选，并须先完成许可评估。
+相册网格的 DNG 缩略图仍只使用只读内嵌 JPEG 提取。不使用 rawler。许可结论见 [技术栈](../tech-stack.zh-CN.md) 第 7 节。
 
 ## 布局
 
@@ -103,7 +104,7 @@ DNG 往往还带有内嵌 JPEG 预览。预览可以用于详情页中的显示�
 1. 详情页已经就绪，拍摄信息放在右侧侧栏。
 2. 同一 crate 中已加入 kamadak-exif 与专用 MakerNote 解析。面板展示标准拍摄参数、焦距、色彩空间、时间、可选的 GPS，以及图像设定、对焦（含 Snap）、裁切、ND 和色温。在 GR IIIx 文件上，未裁切显示为 40 mm，裁切显示为 50 mm 或 71 mm，不得套用 ExifTool 中面向 GR III 的 35 mm 和 47 mm 标签。实拍 IIIx 文件使用紧凑的 Pentax 布局 MakerNote；旧的 Ricoh 0x10xx 布局仍可用。公开样本的覆盖范围与未覆盖项见 [gr-iiix-makernote-verification.zh-CN.md](gr-iiix-makernote-verification.zh-CN.md)。
 3. JPEG 直方图根据原图像素计算。若 DNG 已提取内嵌预览，则根据该预览计算直方图，并标明来源。
-4. RAW 原图预览与根据传感器数据计算的直方图留到后续版本，并单独决定解码库与许可。
+4. 详情页已可通过 `CIRAWFilter.outputImage` 对本地 DNG 做 RAW 显影，并根据同一输出计算渲染图像直方图。线性传感器直方图与波形图仍未提供。
 
 ## 已确认的事项
 
@@ -115,4 +116,4 @@ DNG 往往还带有内嵌 JPEG 预览。预览可以用于详情页中的显示�
 
 ## 仍需决定的事项
 
-- 若以后需要真正的 DNG 像素直方图，是接受 rawler 的 LGPL-2.1，还是走 ImageIO 等系统接口。
+- 是否以及何时提供线性传感器直方图或波形图。解码与许可已决定：使用系统 `CIRAWFilter`，不引入 rawler。

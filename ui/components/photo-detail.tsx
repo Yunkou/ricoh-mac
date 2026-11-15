@@ -133,22 +133,40 @@ export function PhotoDetail(props: { model: AppModel }) {
                 </Text>
               </View>
             )}
-            {model.photoDetails()?.previewSource === "preview" &&
-            previewUrl(model.visibleAlbumPhotos(), model.viewingId(), model.photoDetails()) ? (
-              <Text
-                testID="viewer-preview-source"
+            {previewSourceNotice(model) ? (
+              <View
                 style={{
                   position: "absolute",
                   left: 0,
                   top: 0,
-                  fontFamily: font.family,
-                  color: color.secondary,
-                  fontSize: type.meta,
-                  lineHeight: type.lineMeta,
+                  maxWidth: 360,
+                  gap: 6,
                 }}
               >
-                {copy.embeddedPreview}
-              </Text>
+                <Text
+                  testID="viewer-preview-source"
+                  style={{
+                    fontFamily: font.family,
+                    color: color.secondary,
+                    fontSize: type.meta,
+                    lineHeight: type.lineMeta,
+                  }}
+                >
+                  {previewSourceNotice(model)}
+                </Text>
+                {showRawToggle(model) ? (
+                  <Button
+                    testID="viewer-raw-toggle"
+                    kind="ghost"
+                    label={
+                      model.photoDetails()?.previewSource === "raw"
+                        ? copy.useEmbeddedPreview
+                        : copy.useRawPreview
+                    }
+                    onPress={() => model.setPreferRaw(model.photoDetails()?.previewSource !== "raw")}
+                  />
+                ) : null}
+              </View>
             ) : null}
             {showShortcuts() ? (
               <View
@@ -369,6 +387,32 @@ function currentPhoto(photos: AlbumPhoto[], id: string | null): AlbumPhoto | und
 
 function photoFile(photos: AlbumPhoto[], id: string | null): string {
   return currentPhoto(photos, id)?.file ?? "";
+}
+
+function previewSourceNotice(model: AppModel): string | null {
+  const details = model.photoDetails();
+  const status = model.rawStatus();
+  if (status === "loading") {
+    return copy.rawPreviewLoading;
+  }
+  if (status === "failed") {
+    return copy.rawPreviewFailed;
+  }
+  if (details?.previewSource === "raw") {
+    return copy.rawPreview;
+  }
+  if (
+    details?.previewSource === "preview" &&
+    previewUrl(model.visibleAlbumPhotos(), model.viewingId(), details)
+  ) {
+    return copy.embeddedPreview;
+  }
+  return null;
+}
+
+function showRawToggle(model: AppModel): boolean {
+  const details = model.photoDetails();
+  return details?.format === "dng" && model.rawStatus() !== "loading";
 }
 
 function previewUrl(

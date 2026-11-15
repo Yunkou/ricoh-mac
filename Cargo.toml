@@ -22,3 +22,6 @@ xml = "1.4.0"
 [[bin]]
 name = "mock-camera"
 path = "src/bin/mock-camera.rs"
+
+[build-dependencies]
+cc = "1"

@@ -140,11 +140,14 @@ JPEG 与 PNG 的显示优先走 NSH `Image`。官方 [Image](https://nsh.dev/ele
 
 详情页使用 [kamadak-exif](https://crates.io/crates/kamadak-exif) 0.6.2（BSD-2-Clause）读取标准 Exif。拍摄信息面板所需的 Ricoh MakerNote 字段（图像设定、对焦含 Snap、全按快门 Snap、裁切、ND 滤镜和色温）由本 crate 中一小段专用解析读取。解析同时识别合成夹具所用的旧版 Ricoh 0x10xx 布局，以及实拍 GR IIIx JPEG（Exif 0x927C）与 DNG（标签 0xC634）中的紧凑 Pentax 布局 MakerNote。映射依据 ExifTool 公开的 Ricoh 与 Pentax 标签说明，并于 2026 年 11 月 15 日（Asia/Shanghai）对照公开的机内直出样本做过核对。核对记录与仍未验证的字段见 [docs/plans/gr-iiix-makernote-verification.zh-CN.md](plans/gr-iiix-makernote-verification.zh-CN.md)。应用不捆绑 ExifTool，也不把元数据写回 JPEG 或 DNG。在 GR IIIx 文件上，未裁切显示为 40 mm，裁切显示为 50 mm 或 71 mm，不得使用 GR III 的 35 mm 或 47 mm 标签。
 
-对于已经在本地的 DNG，相册网格和详情页用只读的 TIFF/DNG 解析提取内嵌 JPEG 预览，而不做完整 demosaic 冲图。列出相册时不打开 DNG 文件。列表返回后再排队提取，复用相机缩略图那套有并发上限的加载器，已缓存或已在进行中的文件不会重复提取。提取出的 JPEG 可缓存在 `data_dir()/preview-cache`，以源路径、大小和修改时间为键，不得写回 DNG。过期或无法读取的缓存会被忽略并重新提取。该文件的直方图根据预览计算，并标明来源。JPEG 直方图使用 `image` crate（仅启用 JPEG 能力）根据原图像素计算。不使用 `rawler`，以避免 LGPL-2.1 许可带来的义务。
+预览有两种来源，必须分开缓存和标注：
 
-理由：选片需要的是及时、稳定的可视图，而不是最终颜色；内嵌预览通常已存在于相机 DNG 中，解码成本低，且不修改文件。真正的传感器级 RAW 预览若在后续版本中加入，可在完成许可评估后考虑 ImageIO 或其他解码库，但不属于当前拍摄信息面板的范围。ImageIO 官方概念说明见 [Creating and Using Image Sources](https://developer.apple.com/library/archive/documentation/GraphicsImaging/Conceptual/ImageIOGuide/imageio_source/ikpg_source.html)，API 见 [Image I/O](https://developer.apple.com/documentation/imageio)。
+- **嵌入预览。** 对已经在本地的 DNG，相册网格和详情页用只读的 TIFF/DNG 解析提取内嵌 JPEG。列出相册时不打开 DNG 文件。列表返回后再排队提取，复用相机缩略图那套有并发上限的加载器，已缓存或已在进行中的文件不会重复提取。提取出的 JPEG 可缓存在 `data_dir()/preview-cache`，以源路径、大小和修改时间为键，不得写回 DNG。过期或无法读取的缓存会被忽略并重新提取。根据该预览计算的直方图须标明来源。
+- **RAW 显影。** 详情页可通过系统框架 Core Image 的 [`CIRAWFilter`](https://developer.apple.com/documentation/coreimage/cirawfilter) 从 DNG 传感器数据生成显示用画面。实现只使用 `outputImage`，不得使用 `previewImage`（那是辅助的内嵌 JPEG），也不得把 `CGImageSource` 默认读到的内嵌 JPEG 当作 RAW 解码。`ImageIO` 的 `CGImageDestination` 只用于把已经显影的 sRGB 栅格编码为 JPEG 缓存，不用于解码 RAW。窄的 Objective-C 接口由 `cc`（MIT 或 Apache-2.0）在 `build.rs` 中于 macOS 上编译，并静态链入本 crate 的 cdylib；打包时只链接系统框架（Foundation、CoreFoundation、CoreGraphics、CoreImage、ImageIO），不把 Apple SDK 再分发出去，也不额外附带动态库。应用基线已是 macOS 14 或更高版本，覆盖 `CIRAWFilter` 所需的 macOS 12。非 macOS 目标提供桩实现并返回不支持。显示栅格按界面降采样，长边上限为 4096，这不是照片像素尺寸，也不是内嵌 JPEG 的升级；边长小于 64 的栅格视为失败。结果缓存在 `data_dir()/raw-preview-cache`，键包含源路径、大小、修改时间、渲染版本和长边上限。后台同时只显影一张。详情页在换片时丢弃过期结果。直方图使用现有的 `image` crate（仅启用 JPEG 能力）根据同一显影 JPEG 计算，并标明为渲染图像直方图，而不是传感器线性直方图。JPEG 原图直方图仍根据原图像素计算。详情页中「实际大小」依据该显示 JPEG 的像素尺寸，而不是 DNG 的照片像素尺寸。
 
-**待真机验证：** 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项留在第 10.2 节，将在真机验证后决定。
+许可结论：不引入 `rawler`，以避免 LGPL-2.1 义务。系统框架只链接、不分发 SDK。`cc` 的许可可以随应用分发。
+
+**待真机验证：** 若无线不能传输 DNG，第一版是否仍以已经在本地的 DNG（例如从存储卡拷入目标文件夹）满足 RAW 预览需求。此项留在第 10.2 节，将在真机验证后决定。其余仍待验证的 RAW 显影事项亦见第 10.2 节。
 
 ---
 
@@ -169,7 +172,7 @@ nsh package --target macos
 nsh run --target macos
 ```
 
-`nsh package --target macos` 在 `.nsh/out/` 写出 `.app`，官方说明该包是 **ad hoc 签名**，需要 macOS 14 或应用声明的更高版本。见 [Packaging：macOS](https://nsh.dev/docs/packaging.md)。构建本机 runners 需要 Xcode Command Line Tools（`codesign`、`sips` 等），见 [macOS](https://nsh.dev/docs/macos.md)。
+`nsh package --target macos` 在 `.nsh/out/` 写出 `.app`，官方说明该包是 **ad hoc 签名**，需要 macOS 14 或应用声明的更高版本。见 [Packaging：macOS](https://nsh.dev/docs/packaging.md)。构建本机 runners 需要 Xcode Command Line Tools（`codesign`、`sips` 等），见 [macOS](https://nsh.dev/docs/macos.md)。用于 RAW 显影的 Objective-C 代码静态链入 native 模块，打包不附带额外动态库，也不分发 Apple SDK。
 
 **已决定：** 第一版仅供个人使用。采用上述 ad hoc 签名即可。不做 Developer ID 签名，也不做公证。对外分发安装包不在第一版范围内。官方文档中「分发给其他机器需再用 Developer ID 签名并公证」的路径，对本项目的第一版不适用。
 
@@ -199,7 +202,8 @@ nsh run --target macos
 - `data_dir()` 在本应用 bundle id 下的精确路径。
 - `blocking` 内外调用 `data_dir()` 或其他环境 API 的约束。
 - 裁切 50 mm 与 71 mm、Snap、全按快门 Snap、ND 开启、开尔文色温，以及“标准”“单色”以外的图像设定，仍未经 GR IIIx 实拍原片覆盖。见 [docs/plans/gr-iiix-makernote-verification.zh-CN.md](plans/gr-iiix-makernote-verification.zh-CN.md)。
-- 若以后加入传感器级 DNG 预览，是在完成许可评估后采用 ImageIO 还是其他解码库。由于 LGPL-2.1 许可，目前不使用 `rawler`。
+- RAW 显影方面仍待验证：`CIRAWFilter.supportedCameraModels` 在开发用系统上列出了 PENTAX RICOH GR / GR II / GR III，但没有 GR IIIx；公开的 CC0 GR IIIx DNG 仍可显影，是因为文件带有校准矩阵，这不保证每张 IIIx 文件或未来的系统版本都如此。默认的 Apple 显影外观与机内图像设定、白平衡是否一致，尚未对照。色彩准确性，以及非横向 3:2、带旋转方向或其他异常 DNG 的表现，也尚未系统验证。线性传感器直方图或波形图仍未提供。`CIRAWFilter` 是否必须在主线程调用，目前只在单元测试的后台线程上成功过，若未来系统有更严格要求需要再改。
+- 由于 LGPL-2.1 许可，不使用 `rawler`。这一许可结论已经确定。
 - 相机是否支持 HTTP Range 续传。
 - XMP sidecar 与常用软件的互操作；文件名形态已定为规范的 `{file_name}.xmp`。
 - `nsh package --target macos` 在本机的 ad hoc 签名结果，以及该包在本机运行是否足够（第一版不做公证）。

@@ -33,7 +33,9 @@ use importer::{
     FileImportStatus, ImportProgress as FileImportProgress, Importer, download_thumbnail,
 };
 use keychain::MacKeychain;
-use metadata::{PhotoDetails, inspect_photo, is_inside_library, load_library_preview};
+use metadata::{
+    PhotoDetails, PhotoHistogram, inspect_photo, is_inside_library, load_library_preview,
+};
 use profile::{
     CameraProfile, ProfileStore, WifiSession, delete_profile, save_profile, set_active_profile,
     set_auto_switch_back,
@@ -227,6 +229,26 @@ impl Library {
         Ok(details)
     }
 
+    /// Develop a library DNG with Core Image CIRAWFilter and return a display
+    /// JPEG plus a histogram of that rendered image.
+    ///
+    /// The original photograph is only read. On failure the caller should keep
+    /// the embedded preview. This is not an upgrade of the embedded JPEG, and
+    /// the histogram is not a linear sensor histogram.
+    pub async fn develop_raw_preview(path: String) -> Result<DevelopedRawPreview, String> {
+        let folder = load_config()?
+            .library_folder
+            .ok_or_else(|| "请先选择保存位置。".to_string())?;
+        let library = PathBuf::from(folder);
+        let requested = PathBuf::from(path);
+        let cache = metadata::raw_cache_dir(&data_directory()?);
+        let preview =
+            blocking(move || metadata::develop_library_raw_preview(&library, &requested, &cache))
+                .await
+                .map_err(|err| err.to_string())??;
+        Ok(DevelopedRawPreview::from(preview))
+    }
+
     /// Return a `file:` URL for an embedded DNG preview, extracting and caching
     /// it when needed. The original photograph is only read. Missing or unusable
     /// previews yield `Ok(None)`.
@@ -241,6 +263,33 @@ impl Library {
             .await
             .map_err(|err| err.to_string())??;
         Ok(cached.map(|path| file_url(&path)))
+    }
+}
+
+/// A CIRAWFilter display raster and its rendered-image histogram.
+#[derive(Debug, Clone, JsObject)]
+pub struct DevelopedRawPreview {
+    /// `file:` URL of the cached developed JPEG.
+    pub preview_url: String,
+    /// Always `raw`.
+    pub preview_source: String,
+    /// Pixel width of the display raster, which may be downsampled.
+    pub rendered_width: Option<f64>,
+    /// Pixel height of the display raster, which may be downsampled.
+    pub rendered_height: Option<f64>,
+    /// Histogram of the developed JPEG, with `source` set to `raw`.
+    pub histogram: PhotoHistogram,
+}
+
+impl From<metadata::RawPreview> for DevelopedRawPreview {
+    fn from(preview: metadata::RawPreview) -> Self {
+        Self {
+            preview_url: preview.preview_url,
+            preview_source: preview.preview_source,
+            rendered_width: Some(f64::from(preview.rendered_width)),
+            rendered_height: Some(f64::from(preview.rendered_height)),
+            histogram: preview.histogram,
+        }
     }
 }
 

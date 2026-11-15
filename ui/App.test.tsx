@@ -1,5 +1,5 @@
 import { expect, open, test } from "nsh/test";
-import type { ConnectResult, ImportProgress, ImportReport, LibraryPhoto, PhotoDetails, PhotoItem, PhotoMarks, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
+import type { ConnectResult, DevelopedRawPreview, ImportProgress, ImportReport, LibraryPhoto, PhotoDetails, PhotoItem, PhotoMarks, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
 import { applyRange, columnCount, selectAll, selectedCount, selectedIds, toggleId } from "./state/selection";
 
 const samplePhotos = [
@@ -76,7 +76,7 @@ function albumDetails(photo: LibraryPhoto): PhotoDetails {
       ndFilter: null,
       gps: null,
       previewUrl: photo.previewUrl ?? null,
-      previewSource: photo.previewUrl ? "original" : null,
+      previewSource: photo.previewUrl ? "preview" : null,
       histogram: null,
     };
   }
@@ -202,6 +202,7 @@ function modules(options?: {
   libraryPhotos?: LibraryPhoto[] | (() => LibraryPhoto[]);
   photoDetails?: (path: string) => Promise<PhotoDetails> | PhotoDetails;
   loadPreview?: (path: string) => Promise<string | null> | string | null;
+  developRawPreview?: (path: string) => Promise<DevelopedRawPreview> | DevelopedRawPreview;
   setPhotoMarks?: (path: string, rating: number, flag: string) => Promise<PhotoMarks> | PhotoMarks;
 }) {
   const folder = options?.folder === undefined ? null : options.folder;
@@ -261,6 +262,12 @@ function modules(options?: {
           throw new Error("找不到这张照片。");
         }
         return albumDetails(photo);
+      },
+      "Library.developRawPreview": async (path: string) => {
+        if (options?.developRawPreview) {
+          return options.developRawPreview(path);
+        }
+        throw new Error("无法从这张 DNG 显影 RAW。");
       },
       "Camera.probe": typeof probe === "function" ? probe : async () => probe,
       "Camera.listPhotos": async () => photos,
@@ -971,6 +978,89 @@ test("I shows and hides photographer information in the side panel", async () =>
   await app.waitUntil(() => !app.shows("id:viewer-info"));
   await app.keyboard.press("i");
   await app.waitFor("id:viewer-info");
+  app.dispose();
+});
+
+function developedRaw(previewUrl: string): DevelopedRawPreview {
+  return {
+    previewUrl,
+    previewSource: "raw",
+    renderedWidth: 4096,
+    renderedHeight: 2731,
+    histogram: {
+      red: new Array(256).fill(0).map((_, index) => (index > 180 ? 8 : 2)),
+      green: new Array(256).fill(2),
+      blue: new Array(256).fill(2),
+      source: "raw",
+    },
+  };
+}
+
+function dngDetailsWithEmbedded(path: string): PhotoDetails {
+  const photo = albumPhoto({
+    id: "R0000002.DNG",
+    file: "R0000002.DNG",
+    size: 2400,
+    path,
+    previewUrl: "file:///tmp/embedded-preview.jpg",
+  });
+  return {
+    ...albumDetails(photo),
+    previewUrl: "file:///tmp/embedded-preview.jpg",
+    previewSource: "preview",
+    width: 6000,
+    height: 4000,
+    aspectRatio: "3:2",
+    histogram: {
+      red: new Array(256).fill(1),
+      green: new Array(256).fill(1),
+      blue: new Array(256).fill(1),
+      source: "preview",
+    },
+  };
+}
+
+test("the detail page develops a DNG from RAW and labels the rendered preview and histogram", async () => {
+  const app = await openFirstAlbumPhoto({
+    photoDetails: (path) => (path.endsWith(".DNG") ? dngDetailsWithEmbedded(path) : albumDetails(sampleAlbum.find((item) => item.path === path) ?? sampleAlbum[0])),
+    developRawPreview: async () => developedRaw("file:///tmp/raw-preview.jpg"),
+  });
+  await app.keyboard.press("right");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  await app.waitUntil(() => app.texts().includes("当前显示的是 RAW 显影"));
+  expect(app.shows("id:viewer-image")).toBe(true);
+  expect(app.texts()).toContain("直方图（根据 RAW 显影）");
+  expect(app.texts()).toContain("嵌入预览");
+  app.dispose();
+});
+
+test("a failed RAW develop keeps the embedded preview and names the fallback", async () => {
+  const app = await openFirstAlbumPhoto({
+    photoDetails: (path) => (path.endsWith(".DNG") ? dngDetailsWithEmbedded(path) : albumDetails(sampleAlbum.find((item) => item.path === path) ?? sampleAlbum[0])),
+  });
+  await app.keyboard.press("right");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  await app.waitUntil(() => app.texts().includes("RAW 显影失败，已改用嵌入预览"));
+  expect(app.shows("id:viewer-image")).toBe(true);
+  expect(app.texts()).toContain("直方图（根据预览）");
+  expect(app.texts()).toContain("RAW 显影");
+  app.dispose();
+});
+
+test("the detail page can switch back to the embedded preview after a RAW develop", async () => {
+  const app = await openFirstAlbumPhoto({
+    photoDetails: (path) => (path.endsWith(".DNG") ? dngDetailsWithEmbedded(path) : albumDetails(sampleAlbum.find((item) => item.path === path) ?? sampleAlbum[0])),
+    developRawPreview: async () => developedRaw("file:///tmp/raw-preview.jpg"),
+  });
+  await app.keyboard.press("right");
+  await app.waitUntil(() => app.texts().includes("当前显示的是 RAW 显影"));
+  await app.press("id:viewer-raw-toggle");
+  await app.waitUntil(() => app.texts().includes("当前显示的是嵌入预览"));
+  expect(app.texts()).toContain("直方图（根据预览）");
+  expect(app.texts()).toContain("RAW 显影");
+  await app.press("id:viewer-raw-toggle");
+  await app.waitUntil(() => app.texts().includes("当前显示的是 RAW 显影"));
+  expect(app.texts()).toContain("直方图（根据 RAW 显影）");
   app.dispose();
 });
 

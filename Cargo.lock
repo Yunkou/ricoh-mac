@@ -1259,6 +1259,7 @@ dependencies = [
 name = "nsh-app-ricoh-mac"
 version = "0.2.0"
 dependencies = [
+ "cc",
  "image",
  "kamadak-exif",
  "nsh-base",

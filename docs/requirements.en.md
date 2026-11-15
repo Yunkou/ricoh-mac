@@ -102,7 +102,7 @@ Public sources (to be validated on hardware): community clients commonly use `GE
 - 照片 is available from the home screen, from the in-app area switch, and from 查看照片 after an import. It does not require a camera connection or a network.
 - The user chooses the album root with the system folder dialog. That folder is also the single import target. The app lists photograph files that sit directly in that folder. It does not descend into subfolders, and it must not scan the system Photos library or other unauthorized paths.
 - The interface shows a virtualized thumbnail grid and a photo detail page. A click, Space, or Enter opens the detail page from the grid. After opening a photo, the user can return to the grid with Back or Esc and can move to the previous or next photo in the same folder. The detail page presents photographer information in a side panel.
-- JPEG files display in the grid and on the detail page. When a DNG contains an embedded JPEG preview, the album grid and the detail page can show that preview. The detail page labels it as a preview, not as original pixels. A file that cannot be displayed shows an explanation, not an empty frame. This is not a sensor-level RAW decode.
+- JPEG files display in the grid and on the detail page. When a DNG contains an embedded JPEG preview, the album grid and the detail page can show that preview. The detail page labels it as an embedded preview, not as original pixels. The album grid uses only that embedded preview. The detail page can also show a developed image from the DNG sensor data, as specified in section 4.5, and labels the source. A file that cannot be displayed shows an explanation, not an empty frame.
 - Browsing is read-only. The app must not create, rewrite, move, or delete original files in the save location.
 - After a refresh or after entering 照片 again, files added later inside the agreed scan scope should appear.
 
@@ -127,9 +127,13 @@ Public sources (to be validated on hardware): community clients commonly use `GE
 
 **Acceptance criteria:**
 
-- For a local DNG, the album grid and the detail page can show an embedded JPEG preview when one is present, not a full demosaic render. The detail page labels that image as a preview. This is not a sensor-level RAW decode. The rationale is in the technical design.
-- If a DNG has no usable preview, the UI says that it cannot be previewed and still shows basic information such as the file name.
-- A failed preview must not damage or rewrite that DNG.
+- There are two preview sources, and they must be labeled distinctly. One must not be presented as the other:
+  - **Embedded preview:** a JPEG extracted read-only from the DNG. The album grid uses only this source. The detail page may also show it before a develop finishes, when the user chooses it, or when RAW develop fails, and labels it as an embedded preview.
+  - **RAW develop:** the detail page can automatically (or when the user switches to it) build a display image from the DNG sensor data through the system Core Image `CIRAWFilter.outputImage`. `CIRAWFilter.previewImage` and the default embedded JPEG returned by `CGImageSource` must not be treated as a RAW decode. This is a display raster. It may be downsampled for the UI. It is not an “upgraded” embedded preview, and a tiny probe raster must not be treated as the feature being complete.
+- While a RAW develop is in progress, the detail page shows a loading state. On failure it falls back to the embedded preview when one is available, and labels the source correctly.
+- A histogram computed from the RAW-developed image must be labeled as a rendered-image histogram, not as a linear sensor histogram. Existing JPEG histograms, computed from the original pixels, stay as they are.
+- If a DNG has no usable embedded preview and RAW develop also fails, the UI says that it cannot be previewed and still shows basic information such as the file name.
+- A failed preview or develop must not damage or rewrite that DNG. Original files are read-only.
 - Thumbnails for DNG files in the camera list depend on what the wireless interface actually returns, and are to be validated on hardware.
 - If testing on a real camera shows that DNG cannot be transferred over Wi-Fi, whether version 1 should still meet the RAW preview requirement with DNG files already on disk (for example copied from a memory card into the target folder) will be decided after that test. Until then, the item remains listed under To be validated on hardware.
 
@@ -196,7 +200,7 @@ The following is an implementation sequence, not a dated schedule.
 2. **M1 Library, connection, listing, and import:** Choose and persist the save location; save a camera network profile and later switch Wi-Fi automatically, then probe the camera; list photos; import selected or all files into that folder. Scope and acceptance criteria are in section 11. The interface follows the UX decisions in section 6.
 3. **M2 Local album browsing:** Browse thumbnails and a photo detail page of files already in the save location, including use without the camera. This milestone includes the photographer information panel and an embedded DNG preview on the detail page. Album-grid DNG thumbnails are in M4.
 4. **M3 Culling:** 1 to 5 stars, picked and rejected flags, filters, and persistence in XMP sidecars and SQLite.
-5. **M4 RAW preview:** DNG thumbnails in the album grid, using the same read-only embedded JPEG extraction as the detail page, and a later sensor-level RAW preview and histogram. The grid thumbnail work is now in the product. DNG in the camera list, and how version 1 meets the preview requirement if wireless transfer cannot deliver DNG, follow real-camera test results.
+5. **M4 RAW preview:** DNG thumbnails in the album grid, using read-only embedded JPEG extraction, and a detail-page preview and rendered histogram developed from DNG sensor data. Both of those items are now in the product. DNG in the camera list, and how version 1 meets the preview requirement if wireless transfer cannot deliver DNG, follow real-camera test results.
 
 AI-assisted culling and Bluetooth wake go to later-version candidates.
 
@@ -273,7 +277,7 @@ Ratings, flags, RAW develop, and distribution are outside Milestone 1.
 
 ## 12. Milestone 2
 
-Milestone 2 covers local album browsing, the two-entry information architecture, the photo detail page, the photographer information panel, and an embedded DNG preview on the detail page. Stars, flags, filtering, and a sensor-level RAW preview remain outside this milestone. Album-grid DNG thumbnails were added later as the first part of Milestone 4, using the same read-only extractor.
+Milestone 2 covers local album browsing, the two-entry information architecture, the photo detail page, the photographer information panel, and an embedded DNG preview on the detail page. Stars, flags, and filtering remain outside this milestone. Album-grid DNG thumbnails, and a detail-page RAW develop with a rendered histogram, were added later as Milestone 4.
 
 ### 12.1 Scope
 

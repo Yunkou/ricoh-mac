@@ -52,6 +52,15 @@ export type { PhotoDetails };
 
 export const infoPanelMinWidth = 900;
 
+export function isCurrentDetailsRequest(
+  token: number,
+  detailsToken: number,
+  viewingId: string | null,
+  id: string,
+): boolean {
+  return token === detailsToken && viewingId === id;
+}
+
 export function createAppModel() {
   const libraryFolder = signal<string | null>(null);
   const cameraUrl = signal("http://192.168.0.1");
@@ -80,6 +89,8 @@ export function createAppModel() {
   const viewingId = signal<string | null>(null);
   const restorePhotoId = signal<string | null>(null);
   const photoDetails = signal<PhotoDetails | null>(null);
+  const rawStatus = signal<"idle" | "loading" | "ready" | "failed">("idle");
+  const preferRaw = signal(true);
   let detailsToken = 0;
   const thumbLoader = createThumbLoader({
     concurrency: 4,
@@ -463,6 +474,8 @@ export function createAppModel() {
     focusedId.set(id);
     viewingId.set(id);
     photoDetails.set(null);
+    rawStatus.set("idle");
+    preferRaw.set(true);
     void loadPhotoDetails(id);
   }
 
@@ -482,6 +495,7 @@ export function createAppModel() {
     }
     viewingId.set(null);
     photoDetails.set(null);
+    rawStatus.set("idle");
     refreshVisiblePhotos(current);
     if (mainArea() === "photo") {
       mainArea.set("photos");
@@ -500,17 +514,93 @@ export function createAppModel() {
     if (!photo) {
       if (token === detailsToken) {
         photoDetails.set(null);
+        rawStatus.set("idle");
       }
       return;
     }
     try {
       const details = await Library.photoDetails(photo.path);
-      if (token === detailsToken && viewingId() === id) {
-        photoDetails.set(details);
+      if (!isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
+        return;
+      }
+      photoDetails.set(details);
+      if (preferRaw() && details.format === "dng") {
+        rawStatus.set("loading");
+        try {
+          const raw = await Library.developRawPreview(photo.path);
+          if (!isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
+            return;
+          }
+          photoDetails.set({
+            ...details,
+            previewUrl: raw.previewUrl,
+            previewSource: "raw",
+            histogram: raw.histogram,
+          });
+          rawStatus.set("ready");
+        } catch {
+          if (isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
+            rawStatus.set("failed");
+          }
+        }
+      } else {
+        rawStatus.set("idle");
       }
     } catch {
-      if (token === detailsToken && viewingId() === id) {
+      if (isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
         photoDetails.set(null);
+        rawStatus.set("idle");
+      }
+    }
+  }
+
+  async function setPreferRaw(value: boolean) {
+    preferRaw.set(value);
+    const id = viewingId();
+    if (!id) {
+      return;
+    }
+    const photo = albumPhotos().find((item) => item.id === id);
+    const current = photoDetails();
+    if (!photo || !current || current.format !== "dng") {
+      return;
+    }
+    const token = detailsToken;
+    if (!value) {
+      try {
+        const details = await Library.photoDetails(photo.path);
+        if (isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
+          photoDetails.set(details);
+          rawStatus.set(rawStatus() === "ready" || rawStatus() === "failed" ? rawStatus() : "idle");
+        }
+      } catch {
+        /* Keep the current details if the embedded preview cannot be reloaded. */
+      }
+      return;
+    }
+    if (current.previewSource === "raw") {
+      return;
+    }
+    rawStatus.set("loading");
+    try {
+      const raw = await Library.developRawPreview(photo.path);
+      if (!isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
+        return;
+      }
+      const baseline = photoDetails();
+      if (!baseline) {
+        return;
+      }
+      photoDetails.set({
+        ...baseline,
+        previewUrl: raw.previewUrl,
+        previewSource: "raw",
+        histogram: raw.histogram,
+      });
+      rawStatus.set("ready");
+    } catch {
+      if (isCurrentDetailsRequest(token, detailsToken, viewingId(), id)) {
+        rawStatus.set("failed");
       }
     }
   }
@@ -809,6 +899,9 @@ export function createAppModel() {
     viewingId,
     restorePhotoId,
     photoDetails,
+    rawStatus,
+    preferRaw,
+    setPreferRaw,
     thumbLoader,
     albumThumbLoader,
     isBusy,

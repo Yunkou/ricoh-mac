@@ -22,9 +22,10 @@ The recommended order is as follows. The first two items are needed for the next
 
    The same marks are mirrored into a rebuildable SQLite index under `data_dir()/cull-index.sqlite`, keyed by the canonical library path and file name. The sidecar is the source of truth. If the sidecar is missing, a previous index row may be shown. If the sidecar write fails, the index is not updated and the UI does not treat the change as saved. If the sidecar write succeeds and the index then fails, the error is still returned so a later load can rebuild the index. Original JPEG and DNG bytes are never written, and marks are not written back to the camera.
 
+5. **A RAW-developed detail preview and rendered histogram.** Done. For a local DNG, the detail page automatically (or when the user switches) builds a display raster from DNG sensor data through macOS Core Image `CIRAWFilter.outputImage`. `CIRAWFilter.previewImage` and the default embedded JPEG from `CGImageSource` must not be treated as a RAW decode. The raster may be downsampled for the UI (long-edge cap 4096). That is not an upgrade of the embedded JPEG, and a tiny probe raster must not be treated as success. While loading, an existing embedded preview stays visible; on failure the page falls back to that preview and labels the source. The histogram is computed from the same developed JPEG and is labeled as a rendered-image histogram from the RAW develop, not as a linear sensor histogram. Existing JPEG histograms are unchanged. Developed JPEGs are cached under `data_dir()/raw-preview-cache` and are invalidated by source size, mtime, and render version. Only one develop runs at a time. Stale results are dropped when the photograph changes. Originals are read-only. `rawler` is not used. System frameworks are linked only; the SDK is not redistributed. The minimum OS remains macOS 14. This is the second part of Milestone 4.
+
 ## Later milestones
 
-- **Sensor-level RAW / DNG preview and histogram.** A view and histogram computed from sensor data are outside the current photographer information panel. The decoder and its license are a separate decision, listed below.
 - **How version 1 meets the RAW preview requirement if wireless transfer cannot deliver DNG.** This remains in the hardware-validation list in the requirements document, and will be decided after a real-camera test.
 - **An application LICENSE file.** The repository already ships license texts for the font and the icons. The application itself does not yet include a LICENSE file.
 - **The public application name and the final bundle identifier.** The current development identifier is `com.yunkou.ricoh-mac`. It is not the final identity.
@@ -32,7 +33,6 @@ The recommended order is as follows. The first two items are needed for the next
 
 ## Still-open decisions
 
-- Whether a later sensor-level DNG preview or histogram should accept rawler's LGPL-2.1 license, or use ImageIO or another decoder after a license review. This document does not choose between those options.
 - The public application name and the final bundle identifier.
 - Whether the release title should be “Ricoh Mac”, or should keep the current application file name.
 - Whether the release notes should keep a commit-comparison link at the end.
