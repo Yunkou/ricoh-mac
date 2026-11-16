@@ -109,7 +109,7 @@ export function CullControls(props: {
   );
 }
 
-function StarButton(props: {
+export function StarButton(props: {
   testID: string;
   label: string;
   filled: boolean;

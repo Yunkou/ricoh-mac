@@ -65,6 +65,29 @@ export function filterAlbumPhotos(
 }
 
 
+
+export type BatchMarksAction =
+  | { kind: "rating"; rating: number }
+  | { kind: "flag"; flag: CullFlag };
+
+export function batchTargetMarks(
+  rating: number,
+  flag: CullFlag,
+  action: BatchMarksAction,
+): { rating: number; flag: CullFlag } {
+  if (action.kind === "rating") {
+    return { rating: normalizeRating(action.rating), flag: normalizeFlag(flag) };
+  }
+  return { rating: normalizeRating(rating), flag: normalizeFlag(action.flag) };
+}
+
+export function sameMarks(
+  left: { rating: number; flag: CullFlag },
+  right: { rating: number; flag: CullFlag },
+): boolean {
+  return left.rating === right.rating && left.flag === right.flag;
+}
+
 export function pickedAlbumCount(photos: LibraryPhoto[]): number {
   return photos.filter((photo) => normalizeFlag(photo.flag) === "picked").length;
 }

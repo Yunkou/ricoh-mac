@@ -2,6 +2,8 @@ import { Image, Text, View } from "nsh";
 import type { Signal, ViewRef } from "nsh";
 import { copy } from "../copy";
 import type { AlbumPhoto, MarksStatus } from "../state/app-model";
+import type { PressModifiers } from "../state/connection";
+import type { SelectionMap } from "../state/selection";
 import { normalizeFlag, type CullFlag } from "../state/cull";
 import { albumThumbHeight, fileFormatFromName } from "../state/photo-layout";
 import { color, focusRing, font, radius, space, type } from "../theme";
@@ -14,8 +16,9 @@ export function AlbumCell(props: {
   size: () => number;
   height: () => number;
   thumbs: Signal<Record<string, string>>;
+  selected: Signal<SelectionMap>;
   restoreId?: Signal<string | null>;
-  onPress: (index: number, id: string) => void;
+  onPress: (index: number, id: string, event?: PressModifiers) => void;
   onFocus: (id: string) => void;
   onRate: (id: string, rating: number) => void;
   onFlag: (id: string, flag: CullFlag) => void;
@@ -30,7 +33,8 @@ export function AlbumCell(props: {
       accessibilityLabel={props.item().file}
       focusable={true}
       ref={(node) => restoreFocus(node, props.item().id, props.restoreId?.(), props.onRestored)}
-      onPress={() => props.onPress(props.index(), props.item().id)}
+      accessibilityState={{ selected: isSelected(props) }}
+      onPress={(event) => props.onPress(props.index(), props.item().id, event)}
       onFocus={() => props.onFocus(props.item().id)}
       style={{
         width: props.size(),
@@ -53,12 +57,12 @@ export function AlbumCell(props: {
           overflow: "hidden",
           position: "relative",
           borderWidth: 2,
-          borderColor: "transparent",
+          borderColor: isSelected(props) ? color.accent : "transparent",
           alignItems: "center",
           justifyContent: "center",
         }}
         hoverStyle={{
-          borderColor: color.border,
+          borderColor: isSelected(props) ? color.accent : color.border,
         }}
       >
         {props.thumbs()[props.item().id] || props.item().previewUrl ? (
@@ -135,6 +139,34 @@ export function AlbumCell(props: {
             onPress={() => props.onFlag(props.item().id, "rejected")}
           />
         </View>
+        {isSelected(props) ? (
+          <View
+            testID={`album-selected-${props.item().id}`}
+            style={{
+              position: "absolute",
+              left: space.xs,
+              bottom: space.xs,
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              backgroundColor: color.accent,
+              alignItems: "center",
+              justifyContent: "center",
+              pointerEvents: "none",
+            }}
+          >
+            <View
+              style={{
+                width: 8,
+                height: 4,
+                borderLeftWidth: 2,
+                borderBottomWidth: 2,
+                borderColor: color.onAccent,
+                transform: [{ rotate: "-45deg" }],
+              }}
+            />
+          </View>
+        ) : null}
         {props.outsideFilter() ? (
           <View
             style={{
@@ -197,4 +229,8 @@ function restoreFocus(
   }
   node.focus();
   onRestored?.();
+}
+
+function isSelected(props: { selected: Signal<SelectionMap>; item: () => AlbumPhoto }): boolean {
+  return !!props.selected()[props.item().id];
 }

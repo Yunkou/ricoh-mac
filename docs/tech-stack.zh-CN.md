@@ -271,7 +271,7 @@ mixed 应用放在仓库根目录：
 
 耗时的 HTTP 与文件操作在 `blocking()` 中执行。`data_dir()` 在异步模块函数中、在进入这些工作之前读取。选择文件夹使用 `pick_paths(OpenDialog::folders())`。
 
-测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达、元数据格式化、MakerNote 解析和 DNG 预览提取），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态、进度摘要、相册浏览、导出已选、照片详情页和拍摄信息面板，不读取用户的真实保存位置或配置。这些测试不能代替真机验证。MakerNote 夹具现已包含实拍 GR IIIx 文件中的紧凑布局；公开样本未覆盖的字段仍视为未验证，见 [docs/plans/gr-iiix-makernote-verification.zh-CN.md](plans/gr-iiix-makernote-verification.zh-CN.md)。
+测试：`nsh test` 运行 Rust 单元测试和夹具测试（ping、列表、下载、去重、不完整下载恢复、相机不可达、元数据格式化、MakerNote 解析和 DNG 预览提取），以及无界面 UI 测试。UI 测试通过 `open` 的 `modules` 替换 `ricoh-mac/native`，覆盖首次启动、连接后自动列出、选择、导入禁用态、进度摘要、相册浏览、导出已选、相册批量打星与标记、照片详情页和拍摄信息面板，不读取用户的真实保存位置或配置。这些测试不能代替真机验证。MakerNote 夹具现已包含实拍 GR IIIx 文件中的紧凑布局；公开样本未覆盖的字段仍视为未验证，见 [docs/plans/gr-iiix-makernote-verification.zh-CN.md](plans/gr-iiix-makernote-verification.zh-CN.md)。
 
 开发命令：
 

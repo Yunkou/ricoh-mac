@@ -21,7 +21,7 @@ Must have:
 - Connect to the camera over Wi-Fi (automatic switching with a saved camera profile; manual join as fallback)
 - Browse and import photos from the camera into a single target folder, keeping original file names
 - Browse a local album
-- Fast culling with 1 to 5 stars and two flags: picked and rejected (stored in XMP sidecars and a local SQLite index)
+- Fast culling with 1 to 5 stars and two flags: picked and rejected (stored in XMP sidecars and a local SQLite index), including batch rating and flags from a multi-selection in the album
 - Copy every picked original in the album, plus any existing XMP sidecar, into a folder you choose, without overwriting a same-named file or changing the source files
 - RAW / DNG preview
 

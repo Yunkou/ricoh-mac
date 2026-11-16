@@ -130,6 +130,16 @@ export function PhotosToolbar(props: { model: AppModel }) {
           )}
         </Text>
       ) : null}
+      {model.libraryFolder() && model.visibleAlbumPhotos().length > 0 ? (
+        <Button
+          label={copy.albumSelectAll}
+          accessibilityLabel={copy.albumSelectAllHint}
+          kind="ghost"
+          testID="album-select-all"
+          disabled={model.isBusy() || model.isBatchSaving() || model.visibleAlbumPhotos().length === 0}
+          onPress={() => model.onAlbumSelectAll()}
+        />
+      ) : null}
       {model.libraryFolder() && model.albumPhotos().length > 0 ? (
         <Button
           label={copy.exportSelected(pickedAlbumCount(model.albumPhotos()))}

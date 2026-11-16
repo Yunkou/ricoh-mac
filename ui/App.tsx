@@ -65,10 +65,16 @@ function bindKeys(model: AppModel) {
   keymap.bind(
     {
       "mod+a": () => {
-        if (model.mainArea() !== "devices" || model.viewingId()) {
+        if (model.viewingId()) {
           return;
         }
-        model.onSelectAll();
+        if (model.mainArea() === "devices") {
+          model.onSelectAll();
+          return;
+        }
+        if (model.mainArea() === "photos") {
+          model.onAlbumSelectAll();
+        }
       },
       escape: () => {
         if (model.settingsOpen()) {
@@ -81,6 +87,10 @@ function bindKeys(model: AppModel) {
         }
         if (model.mainArea() === "devices") {
           model.onClearSelection();
+          return;
+        }
+        if (model.mainArea() === "photos") {
+          model.onAlbumClearSelection();
         }
       },
       "mod+enter": () => {

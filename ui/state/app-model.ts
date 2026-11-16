@@ -17,6 +17,7 @@ import {
   applyRange,
   idsByFileName,
   selectAll,
+  selectedCount,
   selectedIds,
   toggleId,
 } from "./selection";
@@ -38,7 +39,10 @@ import {
   normalizeFlag,
   normalizeRating,
   pickedAlbumCount,
+  batchTargetMarks,
+  sameMarks,
   type AlbumFilter,
+  type BatchMarksAction,
   type CullFlag,
 } from "./cull";
 import { rasterSize } from "./preview-display";
@@ -54,6 +58,22 @@ export type ExportIssue = {
   status: string;
   message: string;
 };
+
+export type BatchMarksIssue = {
+  file: string;
+  status: "updated" | "unchanged" | "failed";
+  message: string;
+};
+
+export type BatchMarksPhase =
+  | { kind: "idle" }
+  | { kind: "running"; file: string; current: number; total: number }
+  | {
+      kind: "done";
+      updated: number;
+      failed: number;
+      items: BatchMarksIssue[];
+    };
 
 export type ExportPhase =
   | { kind: "idle" }
@@ -102,6 +122,9 @@ export function createAppModel() {
   const fileStatus = signal<Record<string, FileStatus>>({});
   const importPhase = signal<ImportPhase>({ kind: "idle" });
   const exportPhase = signal<ExportPhase>({ kind: "idle" });
+  const albumSelected = signal<Record<string, boolean>>({});
+  const albumRangeAnchor = signal<number | null>(null);
+  const batchMarksPhase = signal<BatchMarksPhase>({ kind: "idle" });
   const notice = signal("");
   const settingsOpen = signal(false);
   const showDevices = signal(false);
@@ -429,6 +452,7 @@ export function createAppModel() {
   function applyAlbumList(items: AlbumPhoto[]) {
     albumThumbLoader.reset();
     albumPhotos.set(items);
+    pruneAlbumSelection(items);
     refreshVisiblePhotos(keepPhotoId());
     const cached: Record<string, string> = {};
     const pending: ThumbRequest[] = [];
@@ -454,6 +478,8 @@ export function createAppModel() {
     albumThumbs.set({});
     albumPhotos.set([]);
     visibleAlbumPhotos.set([]);
+    albumSelected.set({});
+    albumRangeAnchor.set(null);
   }
 
   async function loadAlbum() {
@@ -742,6 +768,10 @@ export function createAppModel() {
   }
 
   function ratePhoto(rating: number, id?: string | null) {
+    if (!id && shouldApplyBatchMarks()) {
+      void applyBatchMarks({ kind: "rating", rating: normalizeRating(rating) });
+      return;
+    }
     const target = id ?? cullTargetId();
     if (!target) {
       return;
@@ -751,6 +781,10 @@ export function createAppModel() {
   }
 
   function flagPhoto(flag: CullFlag, id?: string | null) {
+    if (!id && shouldApplyBatchMarks()) {
+      void applyBatchMarks({ kind: "flag", flag: normalizeFlag(flag) });
+      return;
+    }
     const target = id ?? cullTargetId();
     if (!target) {
       return;
@@ -761,6 +795,146 @@ export function createAppModel() {
 
   function clearPhotoFlag(id?: string | null) {
     flagPhoto("none", id);
+  }
+
+  function pruneAlbumSelection(items: AlbumPhoto[]) {
+    const known = new Set(items.map((photo) => photo.id));
+    const current = albumSelected();
+    const next: Record<string, boolean> = {};
+    let changed = false;
+    for (const id of Object.keys(current)) {
+      if (current[id] && known.has(id)) {
+        next[id] = true;
+      } else if (current[id]) {
+        changed = true;
+      }
+    }
+    if (changed) {
+      albumSelected.set(next);
+    }
+  }
+
+  function selectedAlbumIds() {
+    const selected = albumSelected();
+    return albumPhotos()
+      .map((photo) => photo.id)
+      .filter((id) => selected[id]);
+  }
+
+  function shouldApplyBatchMarks() {
+    return mainArea() === "photos" && selectedAlbumIds().length > 0 && !isBatchSaving();
+  }
+
+  function isBatchSaving() {
+    return batchMarksPhase().kind === "running";
+  }
+
+  function onAlbumPhotoPress(index: number, id: string, event?: PressModifiers) {
+    focusedId.set(id);
+    const ids = visibleAlbumPhotos().map((photo) => photo.id);
+    if (event?.modifiers?.shift) {
+      const from = albumRangeAnchor() ?? index;
+      albumSelected.set(applyRange(ids, from, index));
+      albumRangeAnchor.set(index);
+      return;
+    }
+    if (event?.modifiers?.platform || event?.modifiers?.control) {
+      albumSelected.set(toggleId(albumSelected(), id));
+      albumRangeAnchor.set(index);
+      return;
+    }
+    albumRangeAnchor.set(index);
+    openAlbumPhoto(id);
+  }
+
+  function onAlbumSelectAll() {
+    const ids = visibleAlbumPhotos().map((photo) => photo.id);
+    if (ids.length === 0) {
+      return;
+    }
+    albumSelected.set(selectAll(ids));
+  }
+
+  function onAlbumClearSelection() {
+    albumSelected.set({});
+    albumRangeAnchor.set(null);
+  }
+
+  function albumSelectedCount() {
+    return selectedCount(albumSelected());
+  }
+
+  async function applyBatchMarks(action: BatchMarksAction) {
+    if (isBatchSaving()) {
+      return;
+    }
+    const selected = albumSelected();
+    const photos = albumPhotos().filter((photo) => selected[photo.id]);
+    if (photos.length === 0) {
+      return;
+    }
+    const writes = photos
+      .map((photo) => {
+        const current = currentMarks(photo.id);
+        const next = batchTargetMarks(current.rating, current.flag, action);
+        return { photo, current, next, skip: sameMarks(current, next) };
+      });
+    const toWrite = writes.filter((item) => !item.skip);
+    const items: BatchMarksIssue[] = writes
+      .filter((item) => item.skip)
+      .map((item) => ({
+        file: item.photo.file,
+        status: "unchanged",
+        message: "",
+      }));
+    if (toWrite.length === 0) {
+      batchMarksPhase.set({ kind: "done", updated: 0, failed: 0, items });
+      return;
+    }
+    notice.set("");
+    batchMarksPhase.set({
+      kind: "running",
+      file: toWrite[0].photo.file,
+      current: 0,
+      total: toWrite.length,
+    });
+    let updated = 0;
+    let failed = 0;
+    try {
+      for (const [index, item] of toWrite.entries()) {
+        batchMarksPhase.set({
+          kind: "running",
+          file: item.photo.file,
+          current: index + 1,
+          total: toWrite.length,
+        });
+        try {
+          const saved = await Library.setPhotoMarks(item.photo.path, item.next.rating, item.next.flag);
+          applyLocalMarks(
+            item.photo.id,
+            normalizeRating(saved.rating),
+            normalizeFlag(saved.flag),
+          );
+          updated += 1;
+          items.push({
+            file: item.photo.file,
+            status: "updated",
+            message: "",
+          });
+        } catch (err) {
+          failed += 1;
+          items.push({
+            file: item.photo.file,
+            status: "failed",
+            message: String(err),
+          });
+        }
+      }
+      batchMarksPhase.set({ kind: "done", updated, failed, items });
+    } catch (err) {
+      batchMarksPhase.set({ kind: "idle" });
+      notice.set(`${copy.batchMarksFailed} ${String(err)}`);
+    }
   }
 
   async function connectProfile(id: string) {
@@ -1024,6 +1198,8 @@ export function createAppModel() {
     fileStatus,
     importPhase,
     exportPhase,
+    albumSelected,
+    batchMarksPhase,
     notice,
     settingsOpen,
     showDevices,
@@ -1076,6 +1252,12 @@ export function createAppModel() {
     ratePhoto,
     flagPhoto,
     clearPhotoFlag,
+    isBatchSaving,
+    albumSelectedCount,
+    onAlbumPhotoPress,
+    onAlbumSelectAll,
+    onAlbumClearSelection,
+    applyBatchMarks,
     cullTargetId,
     saveProfileEdits,
     removeProfile,

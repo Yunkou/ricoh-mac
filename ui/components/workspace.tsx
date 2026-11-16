@@ -4,6 +4,7 @@ import type { AppModel } from "../state/app-model";
 import { isKeptOutsideFilter } from "../state/cull";
 import { color, font, space, type } from "../theme";
 import { AlbumFilterBar } from "./album-filter";
+import { BatchMarksStrip } from "./batch-marks-strip";
 import { AlbumGrid } from "./album-grid";
 import { Button } from "./button";
 import { ConnectPanel, FirstRun } from "./empty-state";
@@ -40,6 +41,15 @@ export function PhotosWorkspace(props: { model: AppModel }) {
       ) : model.visibleAlbumPhotos().length === 0 ? (
         <View style={{ flex: 1, minHeight: 0 }}>
           <AlbumFilterBar model={model} />
+          <BatchMarksStrip
+            selected={model.albumSelected}
+            phase={model.batchMarksPhase}
+            saving={() => model.isBatchSaving()}
+            onSelectAll={() => model.onAlbumSelectAll()}
+            onClearSelection={() => model.onAlbumClearSelection()}
+            onRate={(rating) => void model.applyBatchMarks({ kind: "rating", rating })}
+            onFlag={(flag) => void model.applyBatchMarks({ kind: "flag", flag })}
+          />
           <View
             testID="album-filter-empty"
             style={{
@@ -64,12 +74,22 @@ export function PhotosWorkspace(props: { model: AppModel }) {
       ) : (
         <View style={{ flex: 1, minHeight: 0 }}>
           <AlbumFilterBar model={model} />
+          <BatchMarksStrip
+            selected={model.albumSelected}
+            phase={model.batchMarksPhase}
+            saving={() => model.isBatchSaving()}
+            onSelectAll={() => model.onAlbumSelectAll()}
+            onClearSelection={() => model.onAlbumClearSelection()}
+            onRate={(rating) => void model.applyBatchMarks({ kind: "rating", rating })}
+            onFlag={(flag) => void model.applyBatchMarks({ kind: "flag", flag })}
+          />
           <AlbumGrid
             photos={model.visibleAlbumPhotos}
             thumbs={model.albumThumbs}
             restoreId={model.restorePhotoId}
             loader={model.albumThumbLoader}
-            onPhotoPress={(_index, id) => model.openAlbumPhoto(id)}
+            selected={model.albumSelected}
+            onPhotoPress={(index, id, event) => model.onAlbumPhotoPress(index, id, event)}
             onFocusPhoto={(id) => model.focusedId.set(id)}
             onRate={(id, rating) => model.ratePhoto(rating, id)}
             onFlag={(id, flag) => model.flagPhoto(flag, id)}

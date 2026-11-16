@@ -1655,3 +1655,180 @@ test("a partial export shows failed counts and does not claim complete success",
   expect(app.texts().some((line) => line.includes("已导出 2 张") && !line.includes("失败"))).toBe(false);
   app.dispose();
 });
+
+
+async function commandPress(app: Awaited<ReturnType<typeof launchInPhotos>>, selector: string) {
+  await app.keyboard.down("mod");
+  await app.press(selector);
+  await app.keyboard.up("mod");
+}
+
+test("a click in the album still opens the photograph, and does not select it", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:album-photo-0");
+  await app.press("id:album-photo-0");
+  await app.waitFor("id:photo-detail");
+  expect(app.shows("id:viewer-photo-R0000001.JPG")).toBe(true);
+  expect(app.shows("id:album-selected-count")).toBe(false);
+  app.dispose();
+});
+
+test("command-click selects album photographs without opening them", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:album-photo-0");
+  await commandPress(app, "id:album-photo-0");
+  await app.waitFor("id:album-selected-R0000001.JPG");
+  expect(app.shows("id:photo-detail")).toBe(false);
+  expect(app.texts().some((line) => line === "选中 1 张")).toBe(true);
+  await commandPress(app, "id:album-photo-2");
+  await app.waitFor("id:album-selected-R0000003.JPG");
+  expect(app.texts().some((line) => line === "选中 2 张")).toBe(true);
+  expect(app.shows("id:album-selected-R0000002.DNG")).toBe(false);
+  expect(app.shows("id:photo-detail")).toBe(false);
+  app.dispose();
+});
+
+test("shift-click selects a range in the album, and select all can be cleared", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:album-select-all");
+  await commandPress(app, "id:album-photo-0");
+  await app.waitFor("id:album-selected-R0000001.JPG");
+  await app.keyboard.down("shift");
+  await app.press("id:album-photo-2");
+  await app.keyboard.up("shift");
+  await app.waitFor("id:album-selected-R0000002.DNG");
+  expect(app.texts().some((line) => line === "选中 3 张")).toBe(true);
+  expect(app.shows("id:photo-detail")).toBe(false);
+  await app.press("id:album-clear-selection");
+  await app.waitUntil(() => !app.shows("id:album-selected-count"));
+  expect(app.shows("id:album-selected-R0000001.JPG")).toBe(false);
+  await app.press("id:album-select-all");
+  await app.waitFor("id:album-selected-count");
+  expect(app.texts().some((line) => line === "选中 3 张")).toBe(true);
+  await app.keyboard.press("escape");
+  await app.waitUntil(() => !app.shows("id:album-selected-count"));
+  app.dispose();
+});
+
+test("batch rating of a selection saves every selected photograph", async () => {
+  const writes: { path: string; rating: number; flag: string }[] = [];
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+    setPhotoMarks: async (path, rating, flag) => {
+      writes.push({ path, rating, flag });
+      return { rating, flag };
+    },
+  });
+  await app.waitFor("id:album-select-all");
+  await app.press("id:album-select-all");
+  await app.waitFor("id:batch-marks-rating-5");
+  await app.press("id:batch-marks-rating-5");
+  await app.waitFor("id:batch-marks-summary");
+  expect(app.texts().some((line) => line === "已更新 3 张")).toBe(true);
+  expect(writes).toEqual([
+    { path: "/tmp/ricoh-mac-test-library/R0000001.JPG", rating: 5, flag: "none" },
+    { path: "/tmp/ricoh-mac-test-library/R0000002.DNG", rating: 5, flag: "none" },
+    { path: "/tmp/ricoh-mac-test-library/R0000003.JPG", rating: 5, flag: "none" },
+  ]);
+  expect(app.texts().filter((line) => line === "5 星").length).toBeGreaterThanOrEqual(3);
+  expect(app.shows("id:photo-detail")).toBe(false);
+  app.dispose();
+});
+
+test("a partial batch save keeps successful marks and lists the failures", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+    setPhotoMarks: async (path, rating, flag) => {
+      if (path.endsWith("R0000002.DNG")) {
+        throw new Error("无法写入标记文件。");
+      }
+      return { rating, flag };
+    },
+  });
+  await app.waitFor("id:album-select-all");
+  await app.press("id:album-select-all");
+  await app.waitFor("id:batch-marks-flag-picked");
+  await app.press("id:batch-marks-flag-picked");
+  await app.waitFor("id:batch-marks-summary");
+  expect(app.texts().some((line) => line === "已更新 2 张 · 失败 1 张")).toBe(true);
+  expect(app.shows("id:batch-marks-issue-R0000002.DNG")).toBe(true);
+  expect(app.texts().some((line) => line.includes("无法写入标记文件"))).toBe(true);
+  expect(app.shows("id:cull-R0000001.JPG-summary")).toBe(true);
+  expect(app.texts()).toContain("已选");
+  expect(app.texts().some((line) => line === "已选" || line.includes("已选"))).toBe(true);
+  const summaries = app.texts();
+  expect(summaries.some((line) => line.includes("R0000002") && line.includes("失败") ? true : line === "未评级 · 无标记" || line === "未评级")).toBe(true);
+  app.dispose();
+});
+
+test("batch rating does not rewrite photographs that already have the same marks", async () => {
+  const writes: string[] = [];
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: [
+      albumPhoto({ ...sampleAlbum[0], rating: 5, flag: "picked" }),
+      sampleAlbum[1],
+      sampleAlbum[2],
+    ],
+    setPhotoMarks: async (path, rating, flag) => {
+      writes.push(path);
+      return { rating, flag };
+    },
+  });
+  await app.waitFor("id:album-select-all");
+  await app.press("id:album-select-all");
+  await app.waitFor("id:batch-marks-rating-5");
+  await app.press("id:batch-marks-rating-5");
+  await app.waitFor("id:batch-marks-summary");
+  expect(app.texts().some((line) => line === "已更新 2 张")).toBe(true);
+  expect(writes).toEqual([
+    "/tmp/ricoh-mac-test-library/R0000002.DNG",
+    "/tmp/ricoh-mac-test-library/R0000003.JPG",
+  ]);
+  expect(app.texts()).toContain("5 星 · 已选");
+  app.dispose();
+});
+
+test("batch flags stay exclusive, and album shortcuts apply to the selection", async () => {
+  const writes: { path: string; rating: number; flag: string }[] = [];
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: [
+      albumPhoto({ ...sampleAlbum[0], flag: "rejected" }),
+      sampleAlbum[1],
+      sampleAlbum[2],
+    ],
+    setPhotoMarks: async (path, rating, flag) => {
+      writes.push({ path, rating, flag });
+      return { rating, flag };
+    },
+  });
+  await app.waitFor("id:album-select-all");
+  await app.keyboard.press("mod+a");
+  await app.waitFor("id:album-selected-count");
+  await app.keyboard.press("p");
+  await app.waitFor("id:batch-marks-summary");
+  expect(writes.map((item) => item.flag)).toEqual(["picked", "picked", "picked"]);
+  expect(app.texts().some((line) => line.includes("· 排除"))).toBe(false);
+  writes.length = 0;
+  await app.keyboard.press("3");
+  await app.waitFor("id:batch-marks-summary");
+  expect(writes).toEqual([
+    { path: "/tmp/ricoh-mac-test-library/R0000001.JPG", rating: 3, flag: "picked" },
+    { path: "/tmp/ricoh-mac-test-library/R0000002.DNG", rating: 3, flag: "picked" },
+    { path: "/tmp/ricoh-mac-test-library/R0000003.JPG", rating: 3, flag: "picked" },
+  ]);
+  expect(app.texts().filter((line) => line === "3 星 · 已选").length).toBeGreaterThanOrEqual(3);
+  app.dispose();
+});

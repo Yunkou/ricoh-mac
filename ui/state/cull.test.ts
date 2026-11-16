@@ -5,7 +5,9 @@ import {
   isKeptOutsideFilter,
   marksSummary,
   matchingAlbumPhotos,
+  batchTargetMarks,
   pickedAlbumCount,
+  sameMarks,
   matchingIndexLabel,
   nextFlag,
   nextRating,
@@ -112,4 +114,30 @@ test("pickedAlbumCount counts every picked photograph, not the visible filter", 
   expect(pickedAlbumCount(photos)).toBe(2);
   expect(pickedAlbumCount(matchingAlbumPhotos(photos, { kind: "rating", rating: 5 }))).toBe(1);
   expect(pickedAlbumCount(matchingAlbumPhotos(photos, { kind: "flag", flag: "rejected" }))).toBe(0);
+});
+
+test("batch marks apply a rating or flag absolutely and leave the other field alone", () => {
+  expect(batchTargetMarks(2, "picked", { kind: "rating", rating: 5 })).toEqual({
+    rating: 5,
+    flag: "picked",
+  });
+  expect(batchTargetMarks(5, "rejected", { kind: "rating", rating: 0 })).toEqual({
+    rating: 0,
+    flag: "rejected",
+  });
+  expect(batchTargetMarks(3, "rejected", { kind: "flag", flag: "picked" })).toEqual({
+    rating: 3,
+    flag: "picked",
+  });
+  expect(batchTargetMarks(3, "picked", { kind: "flag", flag: "none" })).toEqual({
+    rating: 3,
+    flag: "none",
+  });
+});
+
+test("batch marks that already match are treated as unchanged", () => {
+  const current = { rating: 5, flag: "picked" as const };
+  expect(sameMarks(current, batchTargetMarks(5, "picked", { kind: "rating", rating: 5 }))).toBe(true);
+  expect(sameMarks(current, batchTargetMarks(5, "picked", { kind: "flag", flag: "picked" }))).toBe(true);
+  expect(sameMarks(current, batchTargetMarks(5, "picked", { kind: "flag", flag: "rejected" }))).toBe(false);
 });

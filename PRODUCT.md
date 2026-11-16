@@ -51,6 +51,7 @@ Milestone 3:
 - Each imported photograph can have a rating of 1 to 5 stars, or remain unrated, and a single flag: picked, rejected, or none. Picked and rejected are mutually exclusive; the star rating is independent of the flag.
 - The album grid and the photo detail page show the same marks, and both offer pointer editing. The album can be filtered by flag or by star rating.
 - In Photos and on the detail page, when a photograph is focused or viewed and text is not being edited, `0`–`5` set the rating (`0` clears it; pressing the same star again also clears it), `P` toggles picked, `X` toggles rejected, and `U` clears the flag only.
+- In the album list, the user can select several photographs and apply a star rating or a picked or rejected flag to the selection at once. A click still opens the detail page. Command-click adds or removes a photograph, Shift-click selects a range, and Select All is also available. Batch saves reuse the single-photograph write path. A partial failure reports success and failure counts and reasons, and successful photographs remain saved. Photographs that already have the requested marks are left unchanged.
 - Marks persist in an XMP sidecar next to the photograph and in a local SQLite index. Original JPEG and DNG bytes are not rewritten, and marks are not written back to the camera.
 
 Confirmed in Milestone 4:

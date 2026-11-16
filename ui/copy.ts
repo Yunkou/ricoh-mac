@@ -181,6 +181,16 @@ export const copy = {
     failed > 0 ? `已导出 ${exported} 张 · 失败 ${failed} 张` : `已导出 ${exported} 张`,
   exportOpenFolder: "打开导出文件夹",
   exportFailed: "无法导出已选照片。",
+  albumSelectAll: "全选",
+  albumSelectAllHint: "选择当前列表中的全部照片，以便批量打星或标记。",
+  albumClearSelection: "取消选择",
+  albumSelectedCount: (count: number) => `选中 ${count} 张`,
+  batchMarksSaving: (file: string, current: number, total: number) =>
+    `正在保存 ${file} 的标记（${current}/${total}）`,
+  batchMarksSummary: (updated: number, failed: number) =>
+    failed > 0 ? `已更新 ${updated} 张 · 失败 ${failed} 张` : `已更新 ${updated} 张`,
+  batchMarksUnchanged: "选中的照片已是该标记。",
+  batchMarksFailed: "无法保存选中照片的标记。",
   connectProfile: "连接",
   noSavedProfiles: "还没有保存过相机，连接时会引导你完成。",
   savedProfiles: "已保存的相机",

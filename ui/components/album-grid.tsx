@@ -3,7 +3,9 @@ import type { ListRef, Signal } from "nsh";
 import { cellWidth, columnCount } from "../state/selection";
 import { albumCellHeight } from "../state/photo-layout";
 import type { AlbumPhoto, MarksStatus } from "../state/app-model";
+import type { PressModifiers } from "../state/connection";
 import type { CullFlag } from "../state/cull";
+import type { SelectionMap } from "../state/selection";
 import type { ThumbLoader, ThumbRequest } from "../lib/thumb-loader";
 import { grid, space } from "../theme";
 import { AlbumCell } from "./album-cell";
@@ -26,9 +28,10 @@ function restoreIndex(photos: AlbumPhoto[], id: string | null): number | undefin
 export function AlbumGrid(props: {
   photos: () => AlbumPhoto[];
   thumbs: Signal<Record<string, string>>;
+  selected: Signal<SelectionMap>;
   restoreId: Signal<string | null>;
   loader: ThumbLoader;
-  onPhotoPress: (index: number, id: string) => void;
+  onPhotoPress: (index: number, id: string, event?: PressModifiers) => void;
   onFocusPhoto: (id: string) => void;
   onRate: (id: string, rating: number) => void;
   onFlag: (id: string, flag: CullFlag) => void;
@@ -66,6 +69,7 @@ export function AlbumGrid(props: {
           size={() => cellLayout().size}
           height={() => cellLayout().height}
           thumbs={props.thumbs}
+          selected={props.selected}
           restoreId={props.restoreId}
           onPress={props.onPhotoPress}
           onFocus={props.onFocusPhoto}

@@ -3,7 +3,9 @@ import { color } from "../theme";
 
 export type FileStatus = "pending" | "imported" | "skipped" | "conflict" | "error";
 
-export type PressModifiers = { modifiers?: { shift?: boolean } };
+export type PressModifiers = {
+  modifiers?: { shift?: boolean; platform?: boolean; control?: boolean; alt?: boolean };
+};
 
 
 export type ConnectionState =
