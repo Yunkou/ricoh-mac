@@ -13,7 +13,7 @@ use std::path::Path;
 use crate::error::AppError;
 
 pub use index::CullIndex;
-pub use sidecar::{read_marks, write_marks};
+pub use sidecar::{read_marks, sidecar_for_copy, write_marks};
 
 /// A 0-to-5 star rating. Zero means unrated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]

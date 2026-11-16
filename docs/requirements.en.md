@@ -34,6 +34,7 @@ Typical scenarios:
 - Browse and import photos that are on the camera.
 - Browse a local album.
 - Fast culling with stars or flags.
+- Copy every picked original in the album, plus any existing XMP sidecar, into a folder the user chooses.
 - RAW / DNG preview.
 
 ### 3.2 Version 1 does not include
@@ -140,6 +141,22 @@ Public sources (to be validated on hardware): community clients commonly use `GE
 Official documents confirm that the camera can record DNG, and can record RAW and JPEG together. See the [GR III / GR IIIx FAQ](https://www.ricoh-imaging.co.jp/english/support/qa/gr-3/index.html) and the [operating manual](https://www.ricoh-imaging.co.jp/english/support/man-pdf/gr-3x.pdf).
 
 ---
+
+### 4.6 Export selected photographs
+
+**User story:** As a user, I can copy the originals currently marked as picked in the album, plus any existing XMP sidecar, into a folder I choose, and then open them in another application.
+
+**Decided:** Export uses every picked photograph in the current album, not the photographs visible under the current star or flag filter. The operation only copies. It does not move or delete source files. It does not overwrite a same-named file in the destination. It does not rewrite originals, and it does not rewrite unknown XMP fields. An original can be exported when no sidecar is present. An existing sidecar is chosen by the current read policy, and JPEG and DNG files keep separate sidecar names so they do not overwrite each other. This step does not integrate an external editor, and it does not change the existing XMP naming. Canceling the folder picker has no side effects.
+
+**Acceptance:**
+
+- Photos has a clear Export selected control, and it shows the picked count.
+- The destination is chosen with the existing system folder picker. Copying starts only after a folder is chosen.
+- When the export finishes, the success and failure counts are shown. The original and its sidecar count as one result for each photograph. A partial copy must not be presented as complete success.
+- A failure must not leave a truncated destination file that looks complete.
+- The destination folder can be opened. An external editor is not launched automatically.
+- Choosing the library folder as the destination, a path-escape attempt, a same-name conflict, a permission or disk failure, a missing original, or a sidecar copy failure is reported clearly, and source files are left unchanged.
+
 
 ## 5. Non-functional requirements
 

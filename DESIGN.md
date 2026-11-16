@@ -67,7 +67,7 @@ Depth comes from translucent layers over the window’s dark vibrancy, not from 
 
 - **Primary button:** Amber fill, dark label, visible focus outline, disabled opacity 0.45.
 - **Secondary button:** Transparent fill, border, light label.
-- **Ghost button:** No border, secondary label, used for select all, clear, and refresh.
+- **Ghost button:** No border, secondary label, used for select all, clear, refresh, and Export selected in Photos.
 - **Circular settings button:** A Kubai `settings` icon in a circular control, not an emoji or a letter.
 - **Connection status:** Text in the toolbar of 设备, color plus wording. Saved camera profiles are listed in that area. A first-time profile form sits on the empty canvas. After a network switch, a switch-back action can appear in the toolbar.
 - **Progress:** A 4-point bar and a file-name line while importing; a summary line afterward, with conflict and error details listed separately, and an action to open 照片.
@@ -79,7 +79,7 @@ Depth comes from translucent layers over the window’s dark vibrancy, not from 
 
 - In 设备, click or tap a thumbnail to toggle selection. Shift-click selects the inclusive range from the last anchor, using `PressEvent.modifiers.shift`.
 - In 照片, click or tap a thumbnail to open the photo detail page. Left and Right, as well as H and L or J and K, move to the previous or next photograph on that page. Home and End move to the first or last photograph. Space or Enter opens the detail page from the grid, and does not close it once the page is open. Escape or Back returns to the album grid and keeps that photograph visible and focused. F toggles between fitting the current display image to the window and showing it at display-pixel size when a preview is available. For an original JPEG, that mode is labeled 原片 1:1; for a RAW develop or an embedded preview, it is labeled 显示尺寸. I shows or hides the photographer information panel. Shift-/ (“?”) shows or hides the shortcut list. Choosing 照片 on the area switch from the detail page returns to the album grid and keeps that photograph visible and focused. Switching to 设备 from the detail page closes the page and opens 设备.
-- In 设备, Command-A selects all, Escape clears the selection or closes settings, Command-Return imports the selection, and Command-R refreshes the camera list. In 照片, Command-R refreshes the album list. Bindings use `keymap.bind` with `when: "notEditing"` so they do not intercept typing in the camera URL field. Space toggles the focused camera thumbnail when the photo detail page is not open.
+- In 设备, Command-A selects all, Escape clears the selection or closes settings, Command-Return imports the selection, and Command-R refreshes the camera list. In 照片, Command-R refreshes the album list. Export selected shows the count of every picked photograph in the album, ignores the current filter, and copies the originals plus any existing XMP sidecar into a folder the user chooses. Bindings use `keymap.bind` with `when: "notEditing"` so they do not intercept typing in the camera URL field. Space toggles the focused camera thumbnail when the photo detail page is not open.
 - Focusable controls show `focusVisibleStyle` as a 2-point amber outline with a 2-point offset.
 - A successful probe loads the photograph list automatically. Import actions are disabled while an import, probe, list, or folder pick is running, and “import selected” stays disabled when the selection is empty.
 

@@ -65,6 +65,10 @@ export function filterAlbumPhotos(
 }
 
 
+export function pickedAlbumCount(photos: LibraryPhoto[]): number {
+  return photos.filter((photo) => normalizeFlag(photo.flag) === "picked").length;
+}
+
 export function matchingAlbumPhotos<T extends LibraryPhoto>(photos: T[], filter: AlbumFilter): T[] {
   return photos.filter((photo) => matchesFilter(photo, filter));
 }

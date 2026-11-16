@@ -1,5 +1,6 @@
 import { signal } from "nsh";
 import type { Signal } from "nsh";
+import { ExportStrip } from "./export-strip";
 import { ImportStrip } from "./import-strip";
 import { NoticeBanner } from "./notice-banner";
 import { SettingsPanel } from "./settings-panel";
@@ -18,6 +19,10 @@ export function Shell(props: { model: AppModel }) {
       <PhotosToolbarGate model={model} />
       <PhotoToolbarGate model={model} />
       <DevicesImportGate model={model} />
+      <ExportStrip
+        phase={model.exportPhase}
+        onOpenFolder={() => void model.openExportFolder()}
+      />
       <NoticeBanner notice={model.notice} banner={model.banner} />
       <HomeGate model={model} />
       <DevicesGate model={model} />
@@ -27,6 +32,7 @@ export function Shell(props: { model: AppModel }) {
     </>
   );
 }
+
 
 export function HomeToolbarGate(props: { model: AppModel }) {
   const visible = signal(true);
@@ -82,6 +88,7 @@ export function DevicesImportGate(props: { model: AppModel }) {
     </>
   );
 }
+
 
 export function HomeGate(props: { model: AppModel }) {
   const visible = signal(true);

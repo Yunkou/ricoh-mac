@@ -3,6 +3,8 @@ import type { ViewRef } from "nsh";
 import { Camera, Library, Wifi } from "ricoh-mac/native";
 import type {
   ConnectResult,
+  ExportProgress as ExportProgressEvent,
+  ExportReport,
   ImportProgress as ImportProgressEvent,
   LibraryPhoto,
   PhotoDetails,
@@ -35,6 +37,7 @@ import {
   nextRating,
   normalizeFlag,
   normalizeRating,
+  pickedAlbumCount,
   type AlbumFilter,
   type CullFlag,
 } from "./cull";
@@ -45,6 +48,24 @@ export type MarksStatus = {
   state: "idle" | "saving" | "saved" | "failed";
   id: string | null;
 };
+
+export type ExportIssue = {
+  file: string;
+  status: string;
+  message: string;
+};
+
+export type ExportPhase =
+  | { kind: "idle" }
+  | { kind: "picking" }
+  | { kind: "running"; file: string; current: number; total: number }
+  | {
+      kind: "done";
+      exported: number;
+      failed: number;
+      destination: string;
+      items: ExportIssue[];
+    };
 
 const defaultWifiSettings: WifiSettings = {
   profile: null,
@@ -80,6 +101,7 @@ export function createAppModel() {
   const selected = signal<Record<string, boolean>>({});
   const fileStatus = signal<Record<string, FileStatus>>({});
   const importPhase = signal<ImportPhase>({ kind: "idle" });
+  const exportPhase = signal<ExportPhase>({ kind: "idle" });
   const notice = signal("");
   const settingsOpen = signal(false);
   const showDevices = signal(false);
@@ -890,6 +912,107 @@ export function createAppModel() {
     }
   }
 
+  function pickedCount() {
+    return pickedAlbumCount(albumPhotos());
+  }
+
+  function isExporting() {
+    const phase = exportPhase();
+    return phase.kind === "picking" || phase.kind === "running";
+  }
+
+  function publishExportPhase(next: ExportPhase) {
+    exportPhase.set(next);
+  }
+
+  function isThenable<T>(value: unknown): value is Promise<T> {
+    return (
+      typeof value === "object" &&
+      value !== null &&
+      "then" in (value as object) &&
+      typeof (value as { then?: unknown }).then === "function"
+    );
+  }
+
+  function onExportError(err: unknown) {
+    publishExportPhase({ kind: "idle" });
+    notice.set(`${copy.exportFailed} ${String(err)}`);
+  }
+
+  function firstPickedFile(): string {
+    const picked = albumPhotos().filter((photo) => normalizeFlag(photo.flag) === "picked");
+    return picked[0]?.file ?? "";
+  }
+
+  async function copyPickedPhotos(destination: string | null | undefined) {
+    if (destination === null || destination === undefined) {
+      publishExportPhase({ kind: "idle" });
+      return;
+    }
+    publishExportPhase({
+      kind: "running",
+      file: firstPickedFile(),
+      current: 0,
+      total: pickedCount(),
+    });
+    try {
+      const onProgress = (event: ExportProgressEvent) => {
+        publishExportPhase({
+          kind: "running",
+          file: event.file,
+          current: event.current,
+          total: event.total,
+        });
+      };
+      const report = await Library.exportSelected(destination, onProgress);
+      publishExportPhase({
+        kind: "done",
+        exported: report.exported,
+        failed: report.failed,
+        destination: report.destination,
+        items: report.items.map((item) => ({
+          file: item.file,
+          status: item.status,
+          message: item.message,
+        })),
+      });
+    } catch (err) {
+      onExportError(err);
+    }
+  }
+
+  function exportSelected() {
+    if (isExporting()) {
+      return;
+    }
+    if (pickedCount() === 0) {
+      notice.set(copy.exportNeedPicked);
+      return;
+    }
+    notice.set("");
+    publishExportPhase({ kind: "picking" });
+    const picked = Library.pickExportFolder() as unknown;
+    if (isThenable<string | null>(picked)) {
+      return picked.then(copyPickedPhotos, onExportError);
+    }
+    if (typeof picked === "string" || picked === null || picked === undefined) {
+      return copyPickedPhotos(picked);
+    }
+    onExportError(picked);
+  }
+
+  async function openExportFolder() {
+    const phase = exportPhase();
+    if (phase.kind !== "done" || !phase.destination) {
+      return;
+    }
+    try {
+      await Library.openFolder(phase.destination);
+    } catch (err) {
+      notice.set(String(err));
+    }
+  }
+
   return {
     libraryFolder,
     cameraUrl,
@@ -900,6 +1023,7 @@ export function createAppModel() {
     selected,
     fileStatus,
     importPhase,
+    exportPhase,
     notice,
     settingsOpen,
     showDevices,
@@ -961,6 +1085,10 @@ export function createAppModel() {
     onSelectAll,
     onClearSelection,
     importPhotos,
+    pickedCount,
+    isExporting,
+    exportSelected,
+    openExportFolder,
   };
 }
 

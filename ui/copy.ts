@@ -168,6 +168,19 @@ export const copy = {
   shortcutReject: "排除或取消排除",
   shortcutUnflag: "清除已选或排除，不影响星级",
   refreshAlbum: "刷新",
+  exportSelected: (count: number) => (count > 0 ? `导出已选（${count}）` : "导出已选"),
+  exportSelectedHint: (count: number) =>
+    count > 0
+      ? `将当前相册中的全部 ${count} 张已选照片复制到选定文件夹，不受当前筛选影响。`
+      : "将当前相册中的全部已选照片复制到选定文件夹，不受当前筛选影响。",
+  exportNeedPicked: "请先将照片标记为已选。",
+  exportPicking: "正在选择导出文件夹…",
+  exporting: (file: string, current: number, total: number) =>
+    `正在导出 ${file}（${current}/${total}）`,
+  exportSummary: (exported: number, failed: number) =>
+    failed > 0 ? `已导出 ${exported} 张 · 失败 ${failed} 张` : `已导出 ${exported} 张`,
+  exportOpenFolder: "打开导出文件夹",
+  exportFailed: "无法导出已选照片。",
   connectProfile: "连接",
   noSavedProfiles: "还没有保存过相机，连接时会引导你完成。",
   savedProfiles: "已保存的相机",

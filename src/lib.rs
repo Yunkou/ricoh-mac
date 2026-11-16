@@ -6,6 +6,7 @@ mod config;
 mod connect;
 mod cull;
 mod error;
+mod export;
 mod importer;
 mod keychain;
 mod metadata;
@@ -264,6 +265,106 @@ impl Library {
             .map_err(|err| err.to_string())??;
         Ok(cached.map(|path| file_url(&path)))
     }
+
+    /// Open a folder picker for an export destination. Canceling returns `None`
+    /// and has no effect.
+    pub async fn pick_export_folder() -> Result<Option<String>, String> {
+        let folder = load_config()?.library_folder;
+        let start = folder.as_ref().and_then(|path| {
+            PathBuf::from(path)
+                .parent()
+                .map(|parent| parent.to_path_buf())
+        });
+        let mut dialog = OpenDialog::folders()
+            .title("选择导出文件夹")
+            .button_label("导出")
+            .multiple(false);
+        if let Some(path) = start {
+            dialog = dialog.directory(path);
+        }
+        match pick_paths(dialog).await {
+            Ok(Some(paths)) => Ok(paths
+                .into_iter()
+                .next()
+                .map(|path| path.display().to_string())),
+            Ok(None) => Ok(None),
+            Err(err) => Err(err),
+        }
+    }
+
+    /// Copy every picked photograph in the album, and any existing XMP sidecar,
+    /// into `destination`. The current display filter is ignored. Originals are
+    /// not moved, rewritten, or deleted, and an existing destination name is
+    /// not overwritten.
+    pub async fn export_selected(
+        destination: String,
+        on_progress: Callback<ExportProgress, ()>,
+    ) -> Result<ExportReport, String> {
+        let folder = load_config()?
+            .library_folder
+            .ok_or_else(|| "请先选择保存位置。".to_string())?;
+        let library = PathBuf::from(&folder);
+        let destination = PathBuf::from(destination);
+        let data = data_directory().ok();
+        let library_for_prepare = library.clone();
+        let destination_for_prepare = destination.clone();
+        let data_for_prepare = data.clone();
+        let prepared = blocking(move || {
+            crate::export::prepare_picked_photos(
+                &library_for_prepare,
+                &destination_for_prepare,
+                data_for_prepare.as_deref(),
+            )
+        })
+        .await
+        .map_err(|err| err.to_string())??;
+        let total = prepared.photos.len();
+        let dest_root = prepared.destination.clone();
+        let siblings = prepared.siblings.clone();
+        let mut items = Vec::with_capacity(total);
+        for (index, photo) in prepared.photos.into_iter().enumerate() {
+            on_progress.post(ExportProgress {
+                current: (index + 1) as f64,
+                total: total as f64,
+                file: photo.file.clone(),
+            });
+            let library = library.clone();
+            let dest_root = dest_root.clone();
+            let siblings = siblings.clone();
+            let item = blocking(move || {
+                crate::export::export_one_photo(&library, &dest_root, &photo, &siblings)
+            })
+            .await
+            .map_err(|err| err.to_string())?;
+            items.push(item);
+        }
+        Ok(export_report(dest_root, items))
+    }
+
+    /// Open a folder in the system file manager. The path must be absolute.
+    pub async fn open_folder(path: String) -> Result<(), String> {
+        let requested = PathBuf::from(&path);
+        if !requested.is_absolute() {
+            return Err("无法打开导出文件夹。".to_string());
+        }
+        let canonical = blocking(move || {
+            requested
+                .canonicalize()
+                .map_err(|err| AppError::io("无法打开导出文件夹", err))
+                .and_then(|path| {
+                    if path.is_dir() {
+                        Ok(path)
+                    } else {
+                        Err(AppError::msg("请选择一个文件夹。"))
+                    }
+                })
+        })
+        .await
+        .map_err(|err| err.to_string())??;
+        open_path(canonical)
+            .await
+            .map_err(|err| format!("无法打开导出文件夹：{err}"))
+    }
 }
 
 /// A CIRAWFilter display raster and its rendered-image histogram.
@@ -290,6 +391,65 @@ impl From<metadata::RawPreview> for DevelopedRawPreview {
             rendered_height: Some(f64::from(preview.rendered_height)),
             histogram: preview.histogram,
         }
+    }
+}
+
+/// Progress of an export batch.
+#[derive(Debug, Clone, JsObject)]
+pub struct ExportProgress {
+    /// 1-based index of the file being copied.
+    pub current: f64,
+    /// Number of picked photographs in the batch.
+    pub total: f64,
+    /// File name being copied.
+    pub file: String,
+}
+
+/// One photograph in an export batch.
+#[derive(Debug, Clone, JsObject)]
+pub struct ExportItem {
+    /// Original file name.
+    pub file: String,
+    /// `exported`, `partial`, or `error`.
+    pub status: String,
+    /// Detail for the UI.
+    pub message: String,
+    /// Whether the original was written to the destination.
+    pub original_copied: bool,
+    /// Whether a sidecar was written to the destination.
+    pub sidecar_copied: bool,
+}
+
+/// Batch export result.
+#[derive(Debug, Clone, JsObject)]
+pub struct ExportReport {
+    /// Photographs whose original and sidecar, when present, were both copied.
+    pub exported: f64,
+    /// Photographs that were not fully copied.
+    pub failed: f64,
+    /// Canonical destination folder.
+    pub destination: String,
+    /// Per-photograph outcomes.
+    pub items: Vec<ExportItem>,
+}
+
+fn export_report(destination: PathBuf, items: Vec<crate::export::ExportItem>) -> ExportReport {
+    let report = crate::export::summarize_export(destination, items);
+    ExportReport {
+        exported: report.exported as f64,
+        failed: report.failed as f64,
+        destination: report.destination.display().to_string(),
+        items: report
+            .items
+            .into_iter()
+            .map(|item| ExportItem {
+                file: item.file,
+                status: item.status.as_str().to_string(),
+                message: item.message,
+                original_copied: item.original_copied,
+                sidecar_copied: item.sidecar_copied,
+            })
+            .collect(),
     }
 }
 

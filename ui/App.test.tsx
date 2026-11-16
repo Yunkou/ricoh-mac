@@ -1,5 +1,5 @@
 import { expect, open, test } from "nsh/test";
-import type { ConnectResult, DevelopedRawPreview, ImportProgress, ImportReport, LibraryPhoto, PhotoDetails, PhotoItem, PhotoMarks, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
+import type { ConnectResult, DevelopedRawPreview, ExportProgress, ExportReport, ImportProgress, ImportReport, LibraryPhoto, PhotoDetails, PhotoItem, PhotoMarks, ProfileView, SwitchBackResult, WifiSettings } from "ricoh-mac/native";
 import { applyRange, columnCount, selectAll, selectedCount, selectedIds, toggleId } from "./state/selection";
 
 const samplePhotos = [
@@ -204,6 +204,9 @@ function modules(options?: {
   loadPreview?: (path: string) => Promise<string | null> | string | null;
   developRawPreview?: (path: string) => Promise<DevelopedRawPreview> | DevelopedRawPreview;
   setPhotoMarks?: (path: string, rating: number, flag: string) => Promise<PhotoMarks> | PhotoMarks;
+  pickExportFolder?: (() => Promise<string | null> | string | null) | string | null;
+  exportSelected?: (destination: string, onProgress: unknown) => Promise<ExportReport> | ExportReport;
+  openFolder?: (path: string) => Promise<void> | void;
 }) {
   const folder = options?.folder === undefined ? null : options.folder;
   const photos = options?.photos ?? samplePhotos;
@@ -269,6 +272,9 @@ function modules(options?: {
         }
         throw new Error("无法从这张 DNG 显影 RAW。");
       },
+      "Library.pickExportFolder": options?.pickExportFolder ?? (async () => "/tmp/ricoh-mac-test-export"),
+      "Library.exportSelected": options?.exportSelected ?? (async () => emptyExportReport()),
+      "Library.openFolder": options?.openFolder ?? (async () => undefined),
       "Camera.probe": typeof probe === "function" ? probe : async () => probe,
       "Camera.listPhotos": async () => photos,
       "Camera.loadThumbnail": options?.loadThumbnail ?? (async () => null),
@@ -296,7 +302,7 @@ function selectedLine(app: { texts: () => string[] }): string | undefined {
   return app.texts().find((line) => line.includes("已选") && line.includes("张") && line.includes("共"));
 }
 
-function isProgressPoster(value: unknown): value is { post: (event: ImportProgress) => void } {
+function isProgressPoster<T>(value: unknown): value is { post: (event: T) => void } {
   return (
     typeof value === "object" &&
     value !== null &&
@@ -315,6 +321,33 @@ function postProgress(onProgress: unknown, event: ImportProgress) {
   }
 }
 
+
+
+function emptyExportReport(overrides: Partial<ExportReport> = {}): ExportReport {
+  return {
+    exported: 0,
+    failed: 0,
+    destination: "/tmp/ricoh-mac-test-export",
+    items: [],
+    ...overrides,
+  };
+}
+
+function postExportProgress(onProgress: unknown, event: ExportProgress) {
+  if (typeof onProgress === "function") {
+    onProgress(event);
+    return;
+  }
+  if (isProgressPoster(onProgress)) {
+    onProgress.post(event);
+  }
+}
+
+const pickedAlbum: LibraryPhoto[] = [
+  albumPhoto({ ...sampleAlbum[0], flag: "picked" }),
+  albumPhoto({ ...sampleAlbum[1], flag: "picked", rating: 5 }),
+  albumPhoto({ ...sampleAlbum[2], flag: "none", rating: 5 }),
+];
 
 function launch(moduleOverrides?: Parameters<typeof modules>[0]) {
   return open("../App.tsx", {
@@ -1456,5 +1489,169 @@ test("the detail tool strip keeps navigation, marks, and source switching withou
   await app.keyboard.press("escape");
   await app.waitFor("id:album-grid");
   expect(app.shows("id:album-photo-1")).toBe(true);
+  app.dispose();
+});
+
+
+test("the export button stays disabled when nothing is picked", async () => {
+  const calls: number[] = [];
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+    exportSelected: async () => {
+      calls.push(1);
+      return emptyExportReport();
+    },
+  });
+  await app.waitFor("id:export-selected");
+  expect(app.texts().some((line) => line === "导出已选")).toBe(true);
+  expect(app.enabled("id:export-selected")).toBe(false);
+  expect(calls).toEqual([]);
+  expect(app.shows("id:export-summary")).toBe(false);
+  app.dispose();
+});
+
+test("exporting selected photographs copies the full picked set, not the visible filter", async () => {
+  const calls: unknown[] = [];
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: pickedAlbum,
+    exportSelected: async (destination, onProgress) => {
+      calls.push(destination);
+      postExportProgress(onProgress, { current: 1, total: 2, file: "R0000001.JPG" });
+      postExportProgress(onProgress, { current: 2, total: 2, file: "R0000002.DNG" });
+      return emptyExportReport({
+        exported: 2,
+        failed: 0,
+        items: [
+          { file: "R0000001.JPG", status: "exported", message: "已复制原片。", originalCopied: true, sidecarCopied: false },
+          { file: "R0000002.DNG", status: "exported", message: "已复制原片和标记文件。", originalCopied: true, sidecarCopied: true },
+        ],
+      });
+    },
+  });
+  await app.waitFor("id:album-photo-0");
+  await app.press("id:album-filter-rating");
+  await app.waitFor("id:album-filter-rating-menu");
+  await app.press("id:album-filter-rating-5");
+  await app.waitFor("id:export-selected");
+  expect(app.texts().some((line) => line === "导出已选（2）")).toBe(true);
+  expect(app.shows("id:cull-R0000001.JPG-summary")).toBe(false);
+  expect(app.shows("id:cull-R0000002.DNG-summary")).toBe(true);
+  await app.press("id:export-selected");
+  await app.waitFor("id:export-summary");
+  expect(calls).toEqual(["/tmp/ricoh-mac-test-export"]);
+  expect(app.texts().some((line) => line === "已导出 2 张")).toBe(true);
+  app.dispose();
+});
+
+test("canceling the export folder picker has no side effects", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: pickedAlbum,
+    pickExportFolder: async () => null,
+    exportSelected: async () => {
+      throw new Error("should not export after cancel");
+    },
+    openFolder: async () => {
+      throw new Error("should not open a folder after cancel");
+    },
+  });
+  await app.waitFor("id:export-selected");
+  await app.press("id:export-selected");
+  await app.waitFor("id:export-selected");
+  expect(app.shows("id:export-summary")).toBe(false);
+  expect(app.shows("id:export-progress-text")).toBe(false);
+  expect(app.shows("id:notice")).toBe(false);
+  app.dispose();
+});
+
+test("a running export shows progress, then a result that can open the folder", async () => {
+  let finish: ((report: ExportReport) => void) | undefined;
+  const opened: string[] = [];
+  const pending = new Promise<ExportReport>((resolve) => {
+    finish = resolve;
+  });
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: pickedAlbum,
+    pickExportFolder: "/tmp/ricoh-mac-test-export",
+    exportSelected: async (_destination, onProgress) => {
+      postExportProgress(onProgress, { current: 1, total: 2, file: "R0000001.JPG" });
+      return pending;
+    },
+    openFolder: async (path) => {
+      opened.push(path);
+    },
+  });
+  await app.waitFor("id:export-selected");
+  const exporting = app.press("id:export-selected");
+  await app.waitUntil(
+    () =>
+      app.texts().some((line) => line.includes("正在导出") && line.includes("R0000001.JPG")) &&
+      !app.enabled("id:export-selected"),
+    { timeout: 2000 },
+  );
+  expect(app.shows("id:album-photo-0")).toBe(true);
+  finish?.(
+    emptyExportReport({
+      exported: 2,
+      destination: "/tmp/ricoh-mac-test-export",
+      items: [
+        { file: "R0000001.JPG", status: "exported", message: "已复制原片。", originalCopied: true, sidecarCopied: false },
+        { file: "R0000002.DNG", status: "exported", message: "已复制原片和标记文件。", originalCopied: true, sidecarCopied: true },
+      ],
+    }),
+  );
+  await exporting;
+  await app.waitFor("id:export-summary");
+  expect(app.texts().some((line) => line === "已导出 2 张")).toBe(true);
+  await app.press("id:export-open-folder");
+  expect(opened).toEqual(["/tmp/ricoh-mac-test-export"]);
+  app.dispose();
+});
+
+test("exporting the library folder itself is reported as a failure, not as success", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: pickedAlbum,
+    exportSelected: async () => {
+      throw new Error("不能导出到当前保存位置。请选择另一个文件夹。");
+    },
+  });
+  await app.waitFor("id:export-selected");
+  await app.press("id:export-selected");
+  await app.waitFor("id:notice");
+  expect(app.texts().some((line) => line.includes("不能导出到当前保存位置"))).toBe(true);
+  expect(app.shows("id:export-summary")).toBe(false);
+  app.dispose();
+});
+
+test("a partial export shows failed counts and does not claim complete success", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: pickedAlbum,
+    exportSelected: async () =>
+      emptyExportReport({
+        exported: 1,
+        failed: 1,
+        items: [
+          { file: "R0000001.JPG", status: "exported", message: "已复制原片。", originalCopied: true, sidecarCopied: false },
+          {
+            file: "R0000002.DNG",
+            status: "partial",
+            message: "原片已复制，目标中已有同名标记文件 R0000002.DNG.xmp，未覆盖。",
+            originalCopied: true,
+            sidecarCopied: false,
+          },
+        ],
+      }),
+  });
+  await app.waitFor("id:export-selected");
+  await app.press("id:export-selected");
+  await app.waitFor("id:export-summary");
+  expect(app.texts().some((line) => line === "已导出 1 张 · 失败 1 张")).toBe(true);
+  expect(app.shows("id:export-issue-R0000002.DNG")).toBe(true);
+  expect(app.texts().some((line) => line.includes("已导出 2 张") && !line.includes("失败"))).toBe(false);
   app.dispose();
 });

@@ -5,6 +5,7 @@ import {
   isKeptOutsideFilter,
   marksSummary,
   matchingAlbumPhotos,
+  pickedAlbumCount,
   matchingIndexLabel,
   nextFlag,
   nextRating,
@@ -100,4 +101,15 @@ test("compact star hits are at least 24 CSS pixels and are not flush", () => {
   expect(compactStarHit).toBeGreaterThanOrEqual(24);
   expect(compactStarGap).toBeGreaterThanOrEqual(4);
   expect(albumCaption).toBeGreaterThanOrEqual(compactStarHit + 16);
+});
+
+test("pickedAlbumCount counts every picked photograph, not the visible filter", () => {
+  const photos = [
+    photo({ id: "a.jpg", rating: 0, flag: "picked" }),
+    photo({ id: "b.jpg", rating: 5, flag: "picked" }),
+    photo({ id: "c.jpg", rating: 5, flag: "none" }),
+  ];
+  expect(pickedAlbumCount(photos)).toBe(2);
+  expect(pickedAlbumCount(matchingAlbumPhotos(photos, { kind: "rating", rating: 5 }))).toBe(1);
+  expect(pickedAlbumCount(matchingAlbumPhotos(photos, { kind: "flag", flag: "rejected" }))).toBe(0);
 });

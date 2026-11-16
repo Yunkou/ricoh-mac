@@ -1,7 +1,7 @@
 import { Text, View, reduceMotion } from "nsh";
 import { titleBar } from "nsh/desktop";
 import { copy } from "../copy";
-import { matchingAlbumPhotos } from "../state/cull";
+import { matchingAlbumPhotos, pickedAlbumCount } from "../state/cull";
 import { selectedCount, selectedIds } from "../state/selection";
 import type { AppModel } from "../state/app-model";
 import { displayPath } from "../state/connection";
@@ -129,6 +129,17 @@ export function PhotosToolbar(props: { model: AppModel }) {
             model.albumPhotos().length,
           )}
         </Text>
+      ) : null}
+      {model.libraryFolder() && model.albumPhotos().length > 0 ? (
+        <Button
+          label={copy.exportSelected(pickedAlbumCount(model.albumPhotos()))}
+          accessibilityLabel={copy.exportSelectedHint(pickedAlbumCount(model.albumPhotos()))}
+          icon="folder-down"
+          kind="ghost"
+          testID="export-selected"
+          disabled={model.isBusy() || model.isExporting() || pickedAlbumCount(model.albumPhotos()) === 0}
+          onPress={() => void model.exportSelected()}
+        />
       ) : null}
       {model.libraryFolder() ? (
         <Button

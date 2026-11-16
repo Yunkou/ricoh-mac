@@ -79,6 +79,12 @@ fn stem_is_shared(file: &str, siblings: &[String]) -> bool {
         .any(|other| other != file && stem_of(other) == Some(stem))
 }
 
+/// The sidecar chosen by the current read policy, if one exists.
+/// This does not create or rewrite a sidecar.
+pub fn sidecar_for_copy(photo: &Path, siblings: &[String]) -> Result<Option<PathBuf>, AppError> {
+    sidecar_for_read(photo, siblings)
+}
+
 fn sidecar_for_read(photo: &Path, siblings: &[String]) -> Result<Option<PathBuf>, AppError> {
     let canonical = canonical_sidecar_path(photo)?;
     if canonical.is_file() {
