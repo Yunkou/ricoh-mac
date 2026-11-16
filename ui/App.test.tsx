@@ -537,6 +537,230 @@ test("import summary distinguishes conflicts and errors", async () => {
   expect(texts.some((line) => line.includes("冲突 1") && line.includes("失败 1"))).toBe(true);
   expect(texts.some((line) => line.includes("R0000002.DNG") && line.includes("未覆盖"))).toBe(true);
   expect(texts.some((line) => line.includes("R0000003.JPG") && line.includes("传输中断"))).toBe(true);
+  expect(app.shows("id:retry-failed-imports")).toBe(true);
+  expect(texts.some((line) => line.includes("重试失败项（1）"))).toBe(true);
+  app.dispose();
+});
+
+test("retrying failed imports sends only the failed files and reports a full success", async () => {
+  const selectedCalls: string[][] = [];
+  let allCalls = 0;
+  const app = await launchInDevices({
+    folder: "/tmp/ricoh-mac-test-library",
+    importAll: async (_onProgress: unknown) => {
+      allCalls += 1;
+      return {
+        imported: 1,
+        skipped: 0,
+        conflicts: 1,
+        errors: 1,
+        items: [
+          { file: "R0000001.JPG", status: "imported", message: "" },
+          { file: "R0000002.DNG", status: "conflict", message: "同名文件大小不同，未覆盖" },
+          { file: "R0000003.JPG", status: "error", message: "传输中断" },
+        ],
+      };
+    },
+    importSelected: async (ids: string[], onProgress: unknown) => {
+      selectedCalls.push([...ids]);
+      postProgress(onProgress, {
+        file: "R0000003.JPG",
+        status: "imported",
+        current: 1,
+        total: 1,
+        message: "",
+      });
+      return {
+        imported: 1,
+        skipped: 0,
+        conflicts: 0,
+        errors: 0,
+        items: [{ file: "R0000003.JPG", status: "imported", message: "" }],
+      };
+    },
+  });
+  await app.waitFor("id:connect-camera");
+  await app.press("id:connect-camera");
+  await app.waitFor("id:photo-0");
+  await app.press("id:import-all");
+  await app.waitFor("id:retry-failed-imports");
+  await app.press("id:retry-failed-imports");
+  await app.waitFor("id:import-summary");
+  expect(allCalls).toBe(1);
+  expect(selectedCalls).toEqual([["100RICOH/R0000003.JPG"]]);
+  const texts = app.texts();
+  expect(texts.some((line) => line.includes("已重试") && line.includes("已导入 1") && line.includes("失败 0"))).toBe(true);
+  expect(texts.some((line) => line.includes("R0000002.DNG") && line.includes("未覆盖"))).toBe(true);
+  expect(texts.some((line) => line.includes("R0000003.JPG") && line.includes("传输中断"))).toBe(false);
+  expect(app.shows("id:retry-failed-imports")).toBe(false);
+  app.dispose();
+});
+
+test("a partial retry keeps remaining failures visible and does not retry successful files again", async () => {
+  const selectedCalls: string[][] = [];
+  const app = await launchInDevices({
+    folder: "/tmp/ricoh-mac-test-library",
+    importAll: async (_onProgress: unknown) => ({
+      imported: 0,
+      skipped: 0,
+      conflicts: 0,
+      errors: 2,
+      items: [
+        { file: "R0000001.JPG", status: "error", message: "传输中断" },
+        { file: "R0000003.JPG", status: "error", message: "无法读取相机文件" },
+      ],
+    }),
+    importSelected: async (ids: string[], _onProgress: unknown) => {
+      selectedCalls.push([...ids]);
+      return {
+        imported: 1,
+        skipped: 0,
+        conflicts: 0,
+        errors: 1,
+        items: [
+          { file: "R0000001.JPG", status: "imported", message: "" },
+          { file: "R0000003.JPG", status: "error", message: "仍然失败" },
+        ],
+      };
+    },
+  });
+  await app.waitFor("id:connect-camera");
+  await app.press("id:connect-camera");
+  await app.waitFor("id:photo-0");
+  await app.press("id:import-all");
+  await app.waitFor("id:retry-failed-imports");
+  expect(app.texts().some((line) => line.includes("重试失败项（2）"))).toBe(true);
+  await app.press("id:retry-failed-imports");
+  await app.waitFor("id:import-summary");
+  expect(selectedCalls).toEqual([["100RICOH/R0000001.JPG", "100RICOH/R0000003.JPG"]]);
+  const texts = app.texts();
+  expect(texts.some((line) => line.includes("已重试") && line.includes("已导入 1") && line.includes("失败 1"))).toBe(true);
+  expect(texts.some((line) => line.includes("R0000001.JPG") && line.includes("传输中断"))).toBe(false);
+  expect(texts.some((line) => line.includes("R0000003.JPG") && line.includes("仍然失败"))).toBe(true);
+  expect(app.shows("id:retry-failed-imports")).toBe(true);
+  expect(texts.some((line) => line.includes("重试失败项（1）"))).toBe(true);
+  await app.press("id:retry-failed-imports");
+  await app.waitFor("id:import-summary");
+  expect(selectedCalls).toEqual([
+    ["100RICOH/R0000001.JPG", "100RICOH/R0000003.JPG"],
+    ["100RICOH/R0000003.JPG"],
+  ]);
+  app.dispose();
+});
+
+test("a new import session does not retry leftover failures from the previous session", async () => {
+  const selectedCalls: string[][] = [];
+  let allCalls = 0;
+  const app = await launchInDevices({
+    folder: "/tmp/ricoh-mac-test-library",
+    importAll: async (_onProgress: unknown) => {
+      allCalls += 1;
+      if (allCalls === 1) {
+        return {
+          imported: 2,
+          skipped: 0,
+          conflicts: 0,
+          errors: 1,
+          items: [
+            { file: "R0000001.JPG", status: "imported", message: "" },
+            { file: "R0000002.DNG", status: "imported", message: "" },
+            { file: "R0000003.JPG", status: "error", message: "传输中断" },
+          ],
+        };
+      }
+      return {
+        imported: 0,
+        skipped: 0,
+        conflicts: 0,
+        errors: 1,
+        items: [{ file: "R0000002.DNG", status: "error", message: "写入失败" }],
+      };
+    },
+    importSelected: async (ids: string[], _onProgress: unknown) => {
+      selectedCalls.push([...ids]);
+      return {
+        imported: 1,
+        skipped: 0,
+        conflicts: 0,
+        errors: 0,
+        items: [{ file: "R0000001.JPG", status: "imported", message: "" }],
+      };
+    },
+  });
+  await app.waitFor("id:connect-camera");
+  await app.press("id:connect-camera");
+  await app.waitFor("id:photo-0");
+  await app.press("id:import-all");
+  await app.waitFor("id:retry-failed-imports");
+  expect(app.texts().some((line) => line.includes("R0000003.JPG") && line.includes("传输中断"))).toBe(true);
+  await app.press("id:photo-0");
+  await app.press("id:import-selected");
+  await app.waitFor("id:import-summary");
+  expect(app.shows("id:retry-failed-imports")).toBe(false);
+  expect(app.texts().some((line) => line.includes("R0000003.JPG") && line.includes("传输中断"))).toBe(false);
+  expect(selectedCalls).toEqual([["100RICOH/R0000001.JPG"]]);
+  await app.press("id:import-all");
+  await app.waitFor("id:retry-failed-imports");
+  const texts = app.texts();
+  expect(texts.some((line) => line.includes("R0000002.DNG") && line.includes("写入失败"))).toBe(true);
+  expect(texts.some((line) => line.includes("R0000003.JPG") && line.includes("传输中断"))).toBe(false);
+  expect(texts.some((line) => line.includes("重试失败项（1）"))).toBe(true);
+  await app.press("id:retry-failed-imports");
+  await app.waitFor("id:import-summary");
+  expect(selectedCalls).toEqual([["100RICOH/R0000001.JPG"], ["100RICOH/R0000002.DNG"]]);
+  app.dispose();
+});
+
+test("a running retry shows retry progress and keeps other import actions disabled", async () => {
+  const report = {
+    imported: 1,
+    skipped: 0,
+    conflicts: 0,
+    errors: 0,
+    items: [{ file: "R0000003.JPG", status: "imported", message: "" }],
+  };
+  let finishRetry!: (value: typeof report) => void;
+  const retryHeld = new Promise<typeof report>((resolve) => {
+    finishRetry = resolve;
+  });
+  const app = await launchInDevices({
+    folder: "/tmp/ricoh-mac-test-library",
+    importAll: async (_onProgress: unknown) => ({
+      imported: 0,
+      skipped: 0,
+      conflicts: 0,
+      errors: 1,
+      items: [{ file: "R0000003.JPG", status: "error", message: "传输中断" }],
+    }),
+    importSelected: async (_ids: string[], onProgress: unknown) => {
+      postProgress(onProgress, {
+        file: "R0000003.JPG",
+        status: "imported",
+        current: 1,
+        total: 1,
+        message: "",
+      });
+      return retryHeld;
+    },
+  });
+  await app.waitFor("id:connect-camera");
+  await app.press("id:connect-camera");
+  await app.waitFor("id:photo-0");
+  await app.press("id:import-all");
+  await app.waitFor("id:retry-failed-imports");
+  const retrying = app.press("id:retry-failed-imports");
+  await app.waitUntil(
+    () =>
+      app.texts().some((line) => line.includes("正在重试") && line.includes("R0000003.JPG")) &&
+      !app.enabled("id:import-selected") &&
+      !app.enabled("id:import-all"),
+    { timeout: 2000 },
+  );
+  finishRetry(report);
+  await retrying;
+  await app.waitFor("id:import-summary");
+  expect(app.texts().some((line) => line.includes("已重试") && line.includes("失败 0"))).toBe(true);
+  expect(app.shows("id:retry-failed-imports")).toBe(false);
   app.dispose();
 });
 

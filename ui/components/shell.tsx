@@ -83,6 +83,7 @@ export function DevicesImportGate(props: { model: AppModel }) {
         <ImportStrip
           importPhase={props.model.importPhase}
           onViewImported={() => void props.model.openPhotos()}
+          onRetryFailed={() => void props.model.retryFailedImports()}
         />
       ) : null}
     </>

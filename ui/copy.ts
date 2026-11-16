@@ -48,6 +48,11 @@ export const copy = {
     `正在导入 ${file}（${current}/${total}）`,
   importSummary: (imported: number, skipped: number, conflicts: number, errors: number) =>
     `已导入 ${imported} · 已跳过 ${skipped} · 冲突 ${conflicts} · 失败 ${errors}`,
+  retryFailedImports: (count: number) => (count > 0 ? `重试失败项（${count}）` : "重试失败项"),
+  retrying: (file: string, current: number, total: number) =>
+    `正在重试 ${file}（${current}/${total}）`,
+  importRetrySummary: (imported: number, skipped: number, conflicts: number, errors: number) =>
+    `已重试：已导入 ${imported} · 已跳过 ${skipped} · 冲突 ${conflicts} · 失败 ${errors}`,
   statusImported: "已导入",
   statusSkipped: "已跳过",
   statusConflict: "冲突",

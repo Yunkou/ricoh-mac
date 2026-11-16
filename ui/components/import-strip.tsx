@@ -6,13 +6,18 @@ import { ImportProgress } from "./import-progress";
 export function ImportStrip(props: {
   importPhase: Signal<ImportPhase>;
   onViewImported: () => void;
+  onRetryFailed: () => void;
 }) {
   return (
     <>
       {props.importPhase().kind === "running" ? (
         <ImportProgress importPhase={props.importPhase} />
       ) : props.importPhase().kind === "done" ? (
-        <CompletionSummary importPhase={props.importPhase} onViewImported={props.onViewImported} />
+        <CompletionSummary
+          importPhase={props.importPhase}
+          onViewImported={props.onViewImported}
+          onRetryFailed={props.onRetryFailed}
+        />
       ) : null}
     </>
   );

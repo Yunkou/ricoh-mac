@@ -77,5 +77,8 @@ function runningLabel(phase: ImportPhase): string {
   if (phase.kind !== "running") {
     return "";
   }
+  if (phase.retrying) {
+    return copy.retrying(phase.file, phase.current, phase.total);
+  }
   return copy.importing(phase.file, phase.current, phase.total);
 }

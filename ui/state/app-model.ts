@@ -23,13 +23,18 @@ import {
 } from "./selection";
 import {
   asFileStatus,
-  isConflictOrError,
   type Banner,
   type ConnectionState,
   type FileStatus,
   type ImportPhase,
   type PressModifiers,
 } from "./connection";
+import {
+  assignImportResults,
+  knownPhotosForImport,
+  sessionAfterImport,
+  sessionAfterRetry,
+} from "./import-retry";
 import {
   adjacentPhotoId,
   filterAlbumPhotos,
@@ -981,11 +986,14 @@ export function createAppModel() {
   }
 
   function markProgress(event: ImportProgressEvent) {
+    const currentPhase = importPhase();
+    const retrying = currentPhase.kind === "running" ? currentPhase.retrying : false;
     importPhase.set({
       kind: "running",
       file: event.file,
       current: event.current,
       total: event.total,
+      retrying,
     });
     const status = asFileStatus(event.status);
     if (!status) {
@@ -1001,6 +1009,22 @@ export function createAppModel() {
   }
 
   async function importPhotos(ids: string[], all: boolean) {
+    if (all) {
+      await runImport({ kind: "all" });
+      return;
+    }
+    await runImport({ kind: "selected", ids });
+  }
+
+  async function retryFailedImports() {
+    const phase = importPhase();
+    if (phase.kind !== "done" || phase.failedImports.length === 0) {
+      return;
+    }
+    await runImport({ kind: "retry", ids: phase.failedImports.map((item) => item.id) });
+  }
+
+  async function runImport(run: { kind: "all" } | { kind: "selected"; ids: string[] } | { kind: "retry"; ids: string[] }) {
     if (isBusy()) {
       return;
     }
@@ -1008,64 +1032,90 @@ export function createAppModel() {
       notice.set(copy.needLibrary);
       return;
     }
-    if (!all && ids.length === 0) {
+    if (run.kind === "selected" && run.ids.length === 0) {
       notice.set(copy.needSelection);
       return;
     }
-    const batchIds = all ? photoIds() : ids;
-    const pending: Record<string, FileStatus> = {};
-    for (const id of batchIds) {
-      pending[id] = "pending";
+    if (run.kind === "retry" && run.ids.length === 0) {
+      return;
     }
-    fileStatus.set(pending);
+    const previous = importPhase();
+    const previousDone = previous.kind === "done" ? previous : null;
+    const retrying = run.kind === "retry";
+    const batchIds = run.kind === "all" ? photoIds() : run.ids;
+    if (retrying) {
+      const pending = { ...fileStatus() };
+      for (const id of batchIds) {
+        pending[id] = "pending";
+      }
+      fileStatus.set(pending);
+    } else {
+      const pending: Record<string, FileStatus> = {};
+      for (const id of batchIds) {
+        pending[id] = "pending";
+      }
+      fileStatus.set(pending);
+    }
     busy.set("import");
     notice.set("");
+    const firstFile =
+      photos().find((photo) => photo.id === batchIds[0])?.file ??
+      previousDone?.failedImports.find((item) => item.id === batchIds[0])?.file ??
+      "";
     importPhase.set({
       kind: "running",
-      file: batchIds.length > 0 ? photos().find((photo) => photo.id === batchIds[0])?.file ?? "" : "",
+      file: firstFile,
       current: 0,
       total: batchIds.length,
+      retrying,
     });
     let importedOk = false;
     try {
       const onProgress = (event: ImportProgressEvent) => {
         markProgress(event);
       };
-      const report = (all ? await Camera.importAll(onProgress) : await Camera.importSelected(ids, onProgress));
-      const issues = report.items
-        .filter((item): item is typeof item & { status: "conflict" | "error" } =>
-          isConflictOrError(item.status),
-        )
-        .map((item) => ({
-          file: item.file,
-          status: item.status,
-          message: item.message,
-        }));
+      const report =
+        run.kind === "all"
+          ? await Camera.importAll(onProgress)
+          : await Camera.importSelected(batchIds, onProgress);
+      const known = knownPhotosForImport(photos(), previousDone?.failedImports ?? []);
+      const assigned = assignImportResults(report.items, known, batchIds);
       const nextStatus = { ...fileStatus() };
-      for (const item of report.items) {
+      for (const item of assigned) {
         const status = asFileStatus(item.status);
-        if (!status) {
-          continue;
-        }
-        const matches = idsByFileName(photos(), item.file);
-        const target = matches.find((id) => nextStatus[id] === "pending") ?? matches[0];
-        if (target) {
-          nextStatus[target] = status;
+        if (status) {
+          nextStatus[item.id] = status;
         }
       }
       fileStatus.set(nextStatus);
-      importPhase.set({
-        kind: "done",
+      const counts = {
         imported: report.imported,
         skipped: report.skipped,
         conflicts: report.conflicts,
         errors: report.errors,
-        issues,
+      };
+      const session =
+        retrying && previousDone
+          ? sessionAfterRetry(previousDone, counts, assigned)
+          : sessionAfterImport(counts, assigned);
+      importPhase.set({
+        kind: "done",
+        imported: session.imported,
+        skipped: session.skipped,
+        conflicts: session.conflicts,
+        errors: session.errors,
+        issues: session.issues,
+        failedImports: session.failedImports,
+        retry: session.retry,
       });
       notice.set("");
       importedOk = true;
     } catch (err) {
-      importPhase.set({ kind: "idle" });
+      if (retrying && previousDone) {
+        importPhase.set(previousDone);
+      } else {
+        importPhase.set({ kind: "idle" });
+      }
       notice.set(String(err));
     } finally {
       busy.set(null);
@@ -1267,6 +1317,7 @@ export function createAppModel() {
     onSelectAll,
     onClearSelection,
     importPhotos,
+    retryFailedImports,
     pickedCount,
     isExporting,
     exportSelected,

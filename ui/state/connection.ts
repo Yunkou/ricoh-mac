@@ -17,16 +17,30 @@ export type ConnectionState =
 
 export type Banner = { text: string; tone: "danger" | "info" };
 
+export type ImportIssue = {
+  file: string;
+  status: "conflict" | "error";
+  message: string;
+};
+
+export type FailedImport = {
+  id: string;
+  file: string;
+  message: string;
+};
+
 export type ImportPhase =
   | { kind: "idle" }
-  | { kind: "running"; file: string; current: number; total: number }
+  | { kind: "running"; file: string; current: number; total: number; retrying: boolean }
   | {
       kind: "done";
       imported: number;
       skipped: number;
       conflicts: number;
       errors: number;
-      issues: { file: string; status: "conflict" | "error"; message: string }[];
+      issues: ImportIssue[];
+      failedImports: FailedImport[];
+      retry: boolean;
     };
 
 export type ButtonKind = "primary" | "secondary" | "ghost";
