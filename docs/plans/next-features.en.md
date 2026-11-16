@@ -40,3 +40,7 @@ The recommended order is as follows. The first two items are needed for the next
 - Whether the application should include a LICENSE file.
 
 The remaining camera HTTP items in section 9 of the requirements document still need hardware validation. They are not expanded here as product features.
+
+## Relation to the product-research plan
+
+A separate recommendation based on public sources was written on 16 November 2026 (Asia/Shanghai). See [product-research-next.en.md](product-research-next.en.md). That note does not change decisions already recorded here, and it does not relist implemented culling, detail, or RAW preview work as unfinished. If the two conflict, the confirmed decisions in this document and in the requirements win.
