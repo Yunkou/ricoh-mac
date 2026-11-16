@@ -1081,8 +1081,10 @@ test("the detail page can switch back to the embedded preview after a RAW develo
 
 test("question mark and the help control toggle the shortcut list", async () => {
   const app = await openFirstAlbumPhoto();
-  expect(app.shows("id:viewer-hint")).toBe(true);
-  expect(app.texts()).toContain("← → 切换  0–5 打星  P 已选  X 排除  U 清除标记  Esc 返回  ? 快捷键");
+  expect(app.shows("id:viewer-toolbar")).toBe(true);
+  expect(app.shows("id:viewer-nav")).toBe(true);
+  expect(app.shows("id:viewer-tools")).toBe(true);
+  expect(app.shows("id:viewer-hint")).toBe(false);
   expect(app.shows("id:viewer-shortcuts")).toBe(false);
   await app.keyboard.press("shift+/");
   await app.waitFor("id:viewer-shortcuts");
@@ -1397,5 +1399,62 @@ test("the current photo stays visible when it misses the filter, is labeled, and
   expect(app.shows("id:cull-R0000002.DNG-summary")).toBe(false);
   expect(app.shows("id:album-kept-R0000002.DNG")).toBe(false);
   expect(app.texts()).toContain("共 1 / 3 张");
+  app.dispose();
+});
+
+test("the album list groups filters and shows format badges and always-visible marks", async () => {
+  const app = await launchInPhotos({
+    folder: "/tmp/ricoh-mac-test-library",
+    libraryPhotos: sampleAlbum,
+  });
+  await app.waitFor("id:album-photo-0");
+  expect(app.shows("id:album-filter-all")).toBe(true);
+  expect(app.shows("id:album-filter-picked")).toBe(true);
+  expect(app.shows("id:album-filter-rating")).toBe(true);
+  expect(app.shows("id:album-filter-rating-3")).toBe(false);
+  expect(app.shows("id:album-format-R0000001.JPG")).toBe(true);
+  expect(app.shows("id:album-format-R0000002.DNG")).toBe(true);
+  expect(app.texts()).toContain("JPEG");
+  expect(app.texts()).toContain("DNG");
+  expect(app.shows("id:cull-R0000001.JPG-rating-3")).toBe(true);
+  expect(app.shows("id:cull-R0000001.JPG-flag-picked")).toBe(true);
+  await app.press("id:album-filter-rating");
+  await app.waitFor("id:album-filter-rating-menu");
+  await app.press("id:album-filter-rating-3");
+  await app.waitUntil(() => app.texts().includes("共 0 / 3 张"));
+  await app.waitFor("id:album-filter-empty");
+  await app.press("id:album-filter-all");
+  await app.waitFor("id:album-photo-0");
+  expect(app.texts()).toContain("共 3 张");
+  app.dispose();
+});
+
+test("the detail tool strip keeps navigation, marks, and source switching without a hint line", async () => {
+  const app = await openFirstAlbumPhoto({
+    photoDetails: (path) =>
+      path.endsWith(".DNG") ? dngDetailsWithEmbedded(path) : albumDetails(sampleAlbum.find((item) => item.path === path) ?? sampleAlbum[0]),
+    developRawPreview: async () => developedRaw("file:///tmp/raw-preview.jpg"),
+  });
+  await app.waitFor("id:viewer-toolbar");
+  expect(app.shows("id:viewer-hint")).toBe(false);
+  expect(app.shows("id:viewer-prev")).toBe(true);
+  expect(app.shows("id:viewer-next")).toBe(true);
+  expect(app.shows("id:cull-rating-3")).toBe(true);
+  expect(app.shows("id:cull-flag-picked")).toBe(true);
+  expect(app.shows("id:viewer-fit")).toBe(true);
+  expect(app.shows("id:viewer-info-button")).toBe(true);
+  expect(app.shows("id:viewer-help")).toBe(true);
+  await app.keyboard.press("right");
+  await app.waitFor("id:viewer-photo-R0000002.DNG");
+  await app.waitUntil(() => app.texts().includes("当前显示的是 RAW 显影"));
+  await app.press("id:viewer-raw-toggle");
+  await app.waitUntil(() => app.texts().includes("当前显示的是嵌入预览"));
+  await app.press("id:viewer-info-button");
+  await app.waitUntil(() => !app.shows("id:viewer-info"));
+  await app.keyboard.press("i");
+  await app.waitFor("id:viewer-info");
+  await app.keyboard.press("escape");
+  await app.waitFor("id:album-grid");
+  expect(app.shows("id:album-photo-1")).toBe(true);
   app.dispose();
 });

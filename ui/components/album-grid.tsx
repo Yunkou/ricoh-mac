@@ -1,6 +1,7 @@
 import { List, windowSize } from "nsh";
 import type { ListRef, Signal } from "nsh";
 import { cellWidth, columnCount } from "../state/selection";
+import { albumCellHeight } from "../state/photo-layout";
 import type { AlbumPhoto, MarksStatus } from "../state/app-model";
 import type { CullFlag } from "../state/cull";
 import type { ThumbLoader, ThumbRequest } from "../lib/thumb-loader";
@@ -11,7 +12,7 @@ function cellLayout() {
   const width = windowSize().width;
   const columns = columnCount(width);
   const size = cellWidth(width, columns);
-  return { columns, size, height: size + grid.caption };
+  return { columns, size, height: albumCellHeight(size) };
 }
 
 function restoreIndex(photos: AlbumPhoto[], id: string | null): number | undefined {

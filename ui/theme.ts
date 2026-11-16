@@ -63,6 +63,11 @@ export const space = {
   xl: 24,
 } as const;
 
+export const viewport = {
+  compact: 720,
+  comfortable: 900,
+} as const;
+
 export const radius = {
   thumb: 4,
   control: 6,
@@ -81,7 +86,7 @@ export const grid = {
   minCell: 136,
   minColumns: 1,
   maxColumns: 8,
-  caption: 72,
+  caption: 22,
 } as const;
 
 export const motion = {

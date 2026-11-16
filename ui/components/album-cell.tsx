@@ -2,9 +2,10 @@ import { Image, Text, View } from "nsh";
 import type { Signal, ViewRef } from "nsh";
 import { copy } from "../copy";
 import type { AlbumPhoto, MarksStatus } from "../state/app-model";
-import type { CullFlag } from "../state/cull";
+import { normalizeFlag, type CullFlag } from "../state/cull";
+import { albumThumbHeight, fileFormatFromName } from "../state/photo-layout";
 import { color, focusRing, font, radius, space, type } from "../theme";
-import { CullControls } from "./cull-controls";
+import { CullControls, FlagButton } from "./cull-controls";
 import { Icon } from "./icon";
 
 export function AlbumCell(props: {
@@ -46,7 +47,7 @@ export function AlbumCell(props: {
         }
         style={{
           width: props.size(),
-          height: props.size(),
+          height: albumThumbHeight(props.size()),
           borderRadius: radius.thumb,
           backgroundColor: color.thumb,
           overflow: "hidden",
@@ -83,6 +84,57 @@ export function AlbumCell(props: {
             </Text>
           </View>
         )}
+        {fileFormatFromName(props.item().file) ? (
+          <View
+            style={{
+              position: "absolute",
+              left: space.xs,
+              top: space.xs,
+              paddingHorizontal: 5,
+              paddingVertical: 2,
+              borderRadius: radius.control,
+              backgroundColor: color.overlay,
+            }}
+          >
+            <Text
+              testID={`album-format-${props.item().id}`}
+              style={{
+                fontFamily: font.family,
+                color: color.text,
+                fontSize: type.badge,
+                lineHeight: type.lineBadge,
+              }}
+            >
+              {fileFormatFromName(props.item().file)}
+            </Text>
+          </View>
+        ) : null}
+        <View
+          style={{
+            position: "absolute",
+            right: space.xs,
+            top: space.xs,
+            flexDirection: "row",
+            gap: space.xs,
+          }}
+        >
+          <FlagButton
+            testID={`cull-${props.item().id}-flag-picked`}
+            label={copy.flagPicked}
+            active={normalizeFlag(props.item().flag) === "picked"}
+            tone="picked"
+            compact={true}
+            onPress={() => props.onFlag(props.item().id, "picked")}
+          />
+          <FlagButton
+            testID={`cull-${props.item().id}-flag-rejected`}
+            label={copy.flagRejected}
+            active={normalizeFlag(props.item().flag) === "rejected"}
+            tone="rejected"
+            compact={true}
+            onPress={() => props.onFlag(props.item().id, "rejected")}
+          />
+        </View>
         {props.outsideFilter() ? (
           <View
             style={{
@@ -125,7 +177,7 @@ export function AlbumCell(props: {
       </Text>
       <CullControls
         photo={props.item}
-        variant="compact"
+        variant="card"
         onRate={(rating) => props.onRate(props.item().id, rating)}
         onFlag={(flag) => props.onFlag(props.item().id, flag)}
         status={props.marksStatus}
@@ -146,4 +198,3 @@ function restoreFocus(
   node.focus();
   onRestored?.();
 }
-

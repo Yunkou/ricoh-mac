@@ -2,11 +2,11 @@ import { Text, View, reduceMotion, windowSize } from "nsh";
 import { copy } from "../copy";
 import { transitionMs } from "../lib/motion";
 import type { AppModel } from "../state/app-model";
-import { color, focusRing, font, motion, panelBackdrop, radius, space, type } from "../theme";
+import { color, focusRing, font, motion, panelBackdrop, radius, space, type, viewport } from "../theme";
 import { Icon, type IconName } from "./icon";
 
 export function HomeScreen(props: { model: AppModel }) {
-  const columns = windowSize().width >= 720;
+  const columns = windowSize().width >= viewport.compact;
   return (
     <View
       testID="home-screen"

@@ -2,8 +2,9 @@ import { Image, Scroll, Text, View, keymap, pixelRatio, reduceMotion, signal, wi
 import type { Signal } from "nsh";
 import { copy } from "../copy";
 import { transitionMs } from "../lib/motion";
-import { infoPanelMinWidth, type AlbumPhoto, type AppModel, type PhotoDetails } from "../state/app-model";
+import { type AlbumPhoto, type AppModel, type PhotoDetails } from "../state/app-model";
 import { adjacentPhotoId, isKeptOutsideFilter, matchingIndexLabel } from "../state/cull";
+import { detailToolStack, infoPlacement, infoVisible } from "../state/photo-layout";
 import { fitModeLabel } from "../state/preview-display";
 import { color, font, motion, space, type } from "../theme";
 import { Button } from "./button";
@@ -210,82 +211,92 @@ export function PhotoDetail(props: { model: AppModel }) {
                 <Text style={metaTextStyle()}>{`U    ${copy.shortcutUnflag}`}</Text>
               </View>
             ) : null}
-          </View>
-          {currentPhoto(model.albumPhotos(), model.viewingId()) ? (
-            <CullControls
-              photo={() =>
-                currentPhoto(model.albumPhotos(), model.viewingId()) ??
-                currentPhoto(model.visibleAlbumPhotos(), model.viewingId()) ??
-                model.albumPhotos()[0]
-              }
-              variant="detail"
-              onRate={(rating) => model.ratePhoto(rating, model.viewingId())}
-              onFlag={(flag) => model.flagPhoto(flag, model.viewingId())}
-              status={() => model.marksStatus()}
-            />
-          ) : null}
-          <View
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: space.md,
-            }}
-          >
-            <Button
-              label={copy.previousPhoto}
-              kind="secondary"
-              testID="viewer-prev"
-              disabled={adjacentPhotoId(model.albumPhotos(), model.albumFilter(), model.viewingId(), -1) == null}
-              onPress={() => model.showAdjacentPhoto(-1)}
-            />
-            <Text
-              testID="viewer-index"
-              style={{
-                fontFamily: font.family,
-                color: viewingKeptOutsideFilter(model) ? color.warning : color.secondary,
-                fontSize: type.meta,
-                lineHeight: type.lineMeta,
-                fontVariant: font.tabularNums,
-              }}
-            >
-              {matchingIndexLabel(model.albumPhotos(), model.albumFilter(), model.viewingId())}
-            </Text>
-            <Button
-              label={copy.nextPhoto}
-              kind="secondary"
-              testID="viewer-next"
-              disabled={adjacentPhotoId(model.albumPhotos(), model.albumFilter(), model.viewingId(), 1) == null}
-              onPress={() => model.showAdjacentPhoto(1)}
-            />
+            {infoVisible(infoMode(), windowSize().width) && infoPlacement(windowSize().width) === "overlay" ? (
+              <View
+                testID="viewer-info-overlay"
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  right: 0,
+                  bottom: 0,
+                  zIndex: 5,
+                }}
+              >
+                <PhotoInfoPanel model={model} naturalSize={naturalSize} />
+              </View>
+            ) : null}
           </View>
           <View
+            testID="viewer-toolbar"
             style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              alignItems: "center",
+              flexDirection: detailToolStack(windowSize().width) === "stack" ? "column" : "row",
+              flexWrap: "nowrap",
+              alignItems: detailToolStack(windowSize().width) === "stack" ? "stretch" : "center",
               justifyContent: "space-between",
+              gap: space.sm,
               width: "100%",
-              gap: space.md,
             }}
           >
-            <Text
-              testID="viewer-hint"
+            <View
+              testID="viewer-nav"
               style={{
-                fontFamily: font.family,
-                color: color.tertiary,
-                fontSize: type.meta,
-                lineHeight: type.lineMeta,
-                flexGrow: 1,
-                flexShrink: 1,
-                minWidth: 160,
-                numberOfLines: 2,
+                flexDirection: "row",
+                flexWrap: "nowrap",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: space.sm,
               }}
             >
-              {copy.shortcutHint}
-            </Text>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: space.sm }}>
+              <Button
+                label={copy.previousPhoto}
+                kind="secondary"
+                testID="viewer-prev"
+                disabled={adjacentPhotoId(model.albumPhotos(), model.albumFilter(), model.viewingId(), -1) == null}
+                onPress={() => model.showAdjacentPhoto(-1)}
+              />
+              <Text
+                testID="viewer-index"
+                style={{
+                  fontFamily: font.family,
+                  color: viewingKeptOutsideFilter(model) ? color.warning : color.secondary,
+                  fontSize: type.meta,
+                  lineHeight: type.lineMeta,
+                  fontVariant: font.tabularNums,
+                }}
+              >
+                {matchingIndexLabel(model.albumPhotos(), model.albumFilter(), model.viewingId())}
+              </Text>
+              <Button
+                label={copy.nextPhoto}
+                kind="secondary"
+                testID="viewer-next"
+                disabled={adjacentPhotoId(model.albumPhotos(), model.albumFilter(), model.viewingId(), 1) == null}
+                onPress={() => model.showAdjacentPhoto(1)}
+              />
+            </View>
+            {currentPhoto(model.albumPhotos(), model.viewingId()) ? (
+              <CullControls
+                photo={() =>
+                  currentPhoto(model.albumPhotos(), model.viewingId()) ??
+                  currentPhoto(model.visibleAlbumPhotos(), model.viewingId()) ??
+                  model.albumPhotos()[0]
+                }
+                variant="detail"
+                onRate={(rating) => model.ratePhoto(rating, model.viewingId())}
+                onFlag={(flag) => model.flagPhoto(flag, model.viewingId())}
+                status={() => model.marksStatus()}
+              />
+            ) : null}
+            <View
+              testID="viewer-tools"
+              style={{
+                flexDirection: "row",
+                flexWrap: "nowrap",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: space.sm,
+              }}
+            >
               <Button
                 label={fitModeLabel(actualSize(), model.photoDetails()?.previewSource)}
                 kind="ghost"
@@ -315,22 +326,12 @@ export function PhotoDetail(props: { model: AppModel }) {
             </View>
           </View>
         </View>
-        {infoVisible(infoMode(), windowSize().width) ? (
+        {infoVisible(infoMode(), windowSize().width) && infoPlacement(windowSize().width) === "side" ? (
           <PhotoInfoPanel model={model} naturalSize={naturalSize} />
         ) : null}
       </View>
     </FadeEnter>
   );
-}
-
-function infoVisible(mode: "auto" | "on" | "off", width: number): boolean {
-  if (mode === "on") {
-    return true;
-  }
-  if (mode === "off") {
-    return false;
-  }
-  return width >= infoPanelMinWidth;
 }
 
 function resetViewOnPhotoChange(

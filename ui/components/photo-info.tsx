@@ -15,6 +15,7 @@ import {
   whiteBalanceLabel,
 } from "../copy";
 import type { AppModel } from "../state/app-model";
+import { fileFormatFromName } from "../state/photo-layout";
 import {
   displayPixelDimensions,
   displaySizeCaption,
@@ -303,19 +304,6 @@ function cameraLabel(make: string | null | undefined, model: string | null | und
   return trimmedModel || trimmedMake || null;
 }
 
-function fileFormatFromName(file: string | undefined): string | null {
-  if (!file) {
-    return null;
-  }
-  const ext = file.split(".").pop()?.toLowerCase();
-  if (ext === "jpg" || ext === "jpeg") {
-    return "JPEG";
-  }
-  if (ext === "dng") {
-    return "DNG";
-  }
-  return ext ? ext.toUpperCase() : null;
-}
 
 export function formatFileSize(bytes: number): string {
   if (bytes < 1024) {

@@ -39,6 +39,7 @@ import {
   type CullFlag,
 } from "./cull";
 import { rasterSize } from "./preview-display";
+import { viewport } from "../theme";
 
 export type MarksStatus = {
   state: "idle" | "saving" | "saved" | "failed";
@@ -58,7 +59,7 @@ export type MainArea = "home" | "devices" | "photos" | "photo";
 export type AlbumPhoto = LibraryPhoto;
 export type { PhotoDetails };
 
-export const infoPanelMinWidth = 900;
+export const infoPanelMinWidth = viewport.comfortable;
 
 export function isCurrentDetailsRequest(
   token: number,

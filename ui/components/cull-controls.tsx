@@ -6,7 +6,7 @@ import { color, compactStarGap, compactStarHit, focusRing, font, radius, space, 
 
 export function CullControls(props: {
   photo: () => AlbumPhoto;
-  variant: "compact" | "detail";
+  variant: "compact" | "card" | "detail";
   onRate: (rating: number) => void;
   onFlag: (flag: CullFlag) => void;
   status?: () => MarksStatus;
@@ -14,13 +14,14 @@ export function CullControls(props: {
   const photo = props.photo();
   const rating = normalizeRating(photo.rating);
   const flag = normalizeFlag(photo.flag);
-  const compact = props.variant === "compact";
+  const compact = props.variant !== "detail";
+  const card = props.variant === "card";
   const prefix = compact ? `cull-${photo.id}` : "cull";
   return (
     <View
       style={{
         flexDirection: "row",
-        flexWrap: "wrap",
+        flexWrap: card ? "nowrap" : "wrap",
         alignItems: "center",
         justifyContent: compact ? "flex-start" : "center",
         gap: compact ? 2 : space.md,
@@ -74,34 +75,36 @@ export function CullControls(props: {
           />
         ) : null}
       </View>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
-        <FlagButton
-          testID={`${prefix}-flag-picked`}
-          label={copy.flagPicked}
-          active={flag === "picked"}
-          tone="picked"
-          compact={compact}
-          onPress={() => props.onFlag("picked")}
-        />
-        <FlagButton
-          testID={`${prefix}-flag-rejected`}
-          label={copy.flagRejected}
-          active={flag === "rejected"}
-          tone="rejected"
-          compact={compact}
-          onPress={() => props.onFlag("rejected")}
-        />
-        {!compact ? (
+      {card ? null : (
+        <View style={{ flexDirection: "row", alignItems: "center", gap: space.xs }}>
           <FlagButton
-            testID={`${prefix}-flag-none`}
-            label={copy.clearFlag}
-            active={false}
-            tone="none"
-            compact={false}
-            onPress={() => props.onFlag("none")}
+            testID={`${prefix}-flag-picked`}
+            label={copy.flagPicked}
+            active={flag === "picked"}
+            tone="picked"
+            compact={compact}
+            onPress={() => props.onFlag("picked")}
           />
-        ) : null}
-      </View>
+          <FlagButton
+            testID={`${prefix}-flag-rejected`}
+            label={copy.flagRejected}
+            active={flag === "rejected"}
+            tone="rejected"
+            compact={compact}
+            onPress={() => props.onFlag("rejected")}
+          />
+          {!compact ? (
+            <FlagButton
+              testID={`${prefix}-flag-none`}
+              label={copy.clearFlag}
+              active={false}
+              tone="none"
+              compact={false}
+              onPress={() => props.onFlag("none")}
+            />
+          ) : null}
+        </View>
+      )}
     </View>
   );
 }
@@ -146,7 +149,7 @@ function StarButton(props: {
   );
 }
 
-function FlagButton(props: {
+export function FlagButton(props: {
   testID: string;
   label: string;
   active: boolean;

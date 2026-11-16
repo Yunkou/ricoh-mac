@@ -11,7 +11,8 @@ import {
   normalizeFlag,
   normalizeRating,
 } from "./cull";
-import { compactStarGap, compactStarHit, grid } from "../theme";
+import { compactStarGap, compactStarHit } from "../theme";
+import { albumCaption } from "./photo-layout";
 import type { LibraryPhoto } from "ricoh-mac/native";
 
 function photo(partial: Partial<LibraryPhoto> & Pick<LibraryPhoto, "id">): LibraryPhoto {
@@ -98,9 +99,5 @@ test("a kept photo is labeled as outside the filter, and next and previous skip 
 test("compact star hits are at least 24 CSS pixels and are not flush", () => {
   expect(compactStarHit).toBeGreaterThanOrEqual(24);
   expect(compactStarGap).toBeGreaterThanOrEqual(4);
-  const filename = 16;
-  const flagRow = 16;
-  const needed =
-    compactStarGap + filename + compactStarGap + compactStarHit + 2 + flagRow + compactStarGap;
-  expect(grid.caption).toBeGreaterThanOrEqual(needed);
+  expect(albumCaption).toBeGreaterThanOrEqual(compactStarHit + 16);
 });
