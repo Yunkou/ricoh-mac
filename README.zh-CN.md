@@ -12,6 +12,7 @@
 - 技术文档：[docs/tech-stack.zh-CN.md](docs/tech-stack.zh-CN.md)
 - 产品说明：[PRODUCT.zh-CN.md](PRODUCT.zh-CN.md)
 - 设计说明：[DESIGN.zh-CN.md](DESIGN.zh-CN.md)
+- 隐私说明：[docs/privacy.zh-CN.md](docs/privacy.zh-CN.md)
 - 仓库：<https://github.com/Yunkou/ricoh-mac>
 
 ## 第一版范围

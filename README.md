@@ -12,6 +12,7 @@ This repository contains the product requirements, technical design, and the Mil
 - Technical design: [docs/tech-stack.en.md](docs/tech-stack.en.md)
 - Product record: [PRODUCT.md](PRODUCT.md)
 - Design system: [DESIGN.md](DESIGN.md)
+- Privacy: [docs/privacy.en.md](docs/privacy.en.md)
 - Repository: <https://github.com/Yunkou/ricoh-mac>
 
 ## Version 1 scope
