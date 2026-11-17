@@ -44,3 +44,5 @@
 ## 与产品调研规划的关系
 
 2026 年 11 月 16 日（Asia/Shanghai）另写了一份基于公开资料的下一步建议，见 [product-research-next.zh-CN.md](product-research-next.zh-CN.md)。该文不修改本文已经记录的决定，也不把已实现的选片、详情或 RAW 预览重新列为未完成功能。若两者冲突，以本文和需求文档中已确认的决定为准。
+
+同一天另有一份针对内测摄影师所用佳能相机的连接调研，见 [canon-connection-research.zh-CN.md](canon-connection-research.zh-CN.md)。该文不改变本文的目标用户定位：本产品仍面向理光 GR IIIx，佳能部分只讨论是否需要接入，以及当前的实现在 CR3 和协议层有哪些缺口。

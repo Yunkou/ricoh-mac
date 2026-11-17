@@ -44,3 +44,5 @@ The remaining camera HTTP items in section 9 of the requirements document still 
 ## Relation to the product-research plan
 
 A separate recommendation based on public sources was written on 16 November 2026 (Asia/Shanghai). See [product-research-next.en.md](product-research-next.en.md). That note does not change decisions already recorded here, and it does not relist implemented culling, detail, or RAW preview work as unfinished. If the two conflict, the confirmed decisions in this document and in the requirements win.
+
+A research note on connecting the Canon camera used by a beta photographer was written the same day. See [canon-connection-research.en.md](canon-connection-research.en.md). It does not change the intended user here: this application still targets the Ricoh GR IIIx, and the Canon part only discusses whether to integrate it at all and which CR3 and protocol gaps exist today.
