@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 下载最新版本 / Download the latest release
+    url: https://github.com/Yunkou/ricoh-mac/releases/latest
+    about: 安装包与每个版本的更新说明。Archives and per-version notes.
+  - name: 首次连接相机 / First connection to the camera
+    url: https://github.com/Yunkou/ricoh-mac/blob/main/README.zh-CN.md#开发测试与运行
+    about: 在提交缺陷前，先按这里的步骤连接一次。Follow these steps before filing a bug.

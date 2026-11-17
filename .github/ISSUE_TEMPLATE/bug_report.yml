@@ -1,0 +1,91 @@
+name: 缺陷报告 / Bug report
+description: 应用出错了，或者连不上相机。Something in the app went wrong, or a connection failed.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈。多数失败发生在连接环节，结果取决于相机固件、macOS 版本、当前网络与代理状态。下面的字段决定了问题能否复现。
+
+        提交前请先看 README 中的首次连接步骤与常见原因。
+
+        Thanks for the report. Most failures concern connecting, and the outcome depends on camera firmware, macOS version, the current network, and any proxy. The fields below decide whether the report can be reproduced.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 发生了什么 / What happened
+      description: 你做了什么、期望什么、实际看到什么。What you did, what you expected, and what you saw instead.
+      placeholder: 点「连接相机」后加入了相机网络，界面停在「正在连接…」直到失败。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤 / Steps to reproduce
+      description: 你能稳定复现的最短步骤。The shortest reliable sequence you found.
+      placeholder: |
+        1. 在相机上打开无线网络
+        2. 点「连接相机」
+        3. 等待
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: 应用版本 / App version
+      description: 见发布文件名，例如 v0.3.2。Shown in the release file name.
+      placeholder: v0.3.2
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS 版本 / macOS version
+      description: 苹果菜单 → 关于本机。Apple menu → About This Mac.
+      placeholder: macOS 15.1
+    validations:
+      required: true
+  - type: dropdown
+    id: chip
+    attributes:
+      label: Mac 芯片 / Mac chip
+      options:
+        - Apple 芯片 / Apple silicon
+        - Intel
+    validations:
+      required: true
+  - type: input
+    id: camera
+    attributes:
+      label: 相机型号与固件 / Camera model and firmware
+      description: 相机上显示的型号与固件版本。The model and firmware version shown on the camera.
+      placeholder: RICOH GR IIIx, 固件 1.65
+    validations:
+      required: true
+  - type: dropdown
+    id: network-join
+    attributes:
+      label: 电脑是如何加入相机网络的？/ How did the Mac join the camera network?
+      options:
+        - 保存配置后由应用自动切换 / The app switched automatically after I saved the profile
+        - 我在系统设置中手动加入 / I joined manually in System Settings
+        - 电脑本来就在相机网络上 / I was already on the camera network
+        - 应用始终没有加入相机网络 / The app never joined the camera network
+    validations:
+      required: true
+  - type: checkboxes
+    id: state
+    attributes:
+      label: 以下哪些情况成立？/ Which of these apply?
+      options:
+        - label: 相机的无线网络已打开 / The camera's wireless network was on
+        - label: 这台电脑上有代理或 VPN 生效 / A proxy or VPN is active on this Mac
+        - label: 应用的定位权限被拒绝 / Location permission for the app is denied
+        - label: 应用的本地网络权限被拒绝 / Local Network permission for the app is denied
+  - type: textarea
+    id: logs
+    attributes:
+      label: 其他信息 / Anything else
+      description: 截图，或应用显示的原文。请不要粘贴 Wi-Fi 密码。A screenshot, or the exact message. Do not paste your Wi-Fi password.
+    validations:
+      required: false
