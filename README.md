@@ -10,6 +10,7 @@ This repository contains the product requirements, technical design, and the Mil
 
 - Product requirements: [docs/requirements.en.md](docs/requirements.en.md)
 - Technical design: [docs/tech-stack.en.md](docs/tech-stack.en.md)
+- First connection guide: [docs/first-connection.en.md](docs/first-connection.en.md)
 - Product record: [PRODUCT.md](PRODUCT.md)
 - Design system: [DESIGN.md](DESIGN.md)
 - Repository: <https://github.com/Yunkou/ricoh-mac>
