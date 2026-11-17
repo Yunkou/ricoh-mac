@@ -30,7 +30,7 @@ impl WifiError {
         match self {
             Self::PermissionDenied => "没有读取当前网络名称的权限。可在系统设置的「隐私与安全性 > 定位服务」中允许本应用，或手动输入相机屏幕上的名称。".to_string(),
             Self::WrongPassword => "无法加入相机网络，密码可能不正确。".to_string(),
-            Self::Timeout => "等待相机网络超时。请确认相机无线网络已打开。".to_string(),
+            Self::Timeout => "等待相机网络超时。请确认相机无线网络已打开；若已打开仍连不上，请在系统设置的「隐私与安全性 > 本地网络」中允许本应用。".to_string(),
             Self::InterfaceNotFound => "找不到本机的无线网络。".to_string(),
             Self::CommandFailed(text) => text.clone(),
         }
