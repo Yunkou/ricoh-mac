@@ -256,7 +256,8 @@ pub fn connect_camera(
         Ok(_) => fail(
             ConnectFailKind::Unreachable,
             utun_prefix(via_utun.as_deref())
-                + "已加入相机网络，但相机没有响应。请确认相机无线网络仍然打开。",
+                + "已加入相机网络，但相机没有响应。请确认相机无线网络仍然打开。"
+                + "若相机网络已打开仍连不上，请在系统设置的「隐私与安全性 > 本地网络」中允许本应用。",
             via_utun,
         ),
         Err(err) => map_wifi_error(err, via_utun),
@@ -537,6 +538,34 @@ mod tests {
         );
         match outcome {
             ConnectOutcome::Failed { kind, .. } => assert_eq!(kind, ConnectFailKind::Timeout),
+            other => panic!("unexpected {other:?}"),
+        }
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A silently denied local network connection looks like a timeout. The
+    /// message must name the Local Network permission, so the user has a step
+    /// to take instead of only "the camera did not answer".
+    #[test]
+    fn timeout_message_points_at_local_network_permission() {
+        let dir = temp_dir();
+        let secrets = MemorySecrets::default();
+        save_profile(&dir, &secrets, profile("GR_CAM"), "pw").unwrap();
+        let wifi = FakeWifi::new(Some("HomeNet"));
+        wifi.allow("GR_CAM", Some("pw"));
+        let outcome = connect_camera(
+            &dir,
+            &secrets,
+            &wifi,
+            "http://127.0.0.1:1",
+            Duration::from_millis(300),
+            &|| Err(unreachable_err()),
+        );
+        match outcome {
+            ConnectOutcome::Failed { message, .. } => {
+                assert!(message.contains("本地网络"), "message was {message}");
+                assert!(message.contains("隐私与安全性"), "message was {message}");
+            }
             other => panic!("unexpected {other:?}"),
         }
         let _ = std::fs::remove_dir_all(&dir);

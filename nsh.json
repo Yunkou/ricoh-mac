@@ -16,6 +16,7 @@
   },
   "macos": {
     "infoPlist": {
+      "NSLocalNetworkUsageDescription": "Ricoh Mac 需要访问本地网络，才能连接相机并导入照片。相机通过 Wi-Fi 在本地网络中直接提供照片，连接不经过互联网，也不会上传你的照片。若你拒绝授权，应用将无法连接相机；可在系统设置的「隐私与安全性 > 本地网络」中允许本应用。",
       "NSLocationUsageDescription": "Ricoh Mac 需要定位权限才能读取当前 Wi-Fi 名称，便于在首次连接时自动保存相机网络。应用不会使用或记录你的位置。若你拒绝授权，仍可手动输入相机屏幕上显示的网络名称。",
       "NSLocationWhenInUseUsageDescription": "Ricoh Mac 需要定位权限才能读取当前 Wi-Fi 名称，便于在首次连接时自动保存相机网络。应用不会使用或记录你的位置。若你拒绝授权，仍可手动输入相机屏幕上显示的网络名称。"
     }
