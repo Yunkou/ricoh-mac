@@ -1609,15 +1609,25 @@ test("deleting a saved camera profile asks for confirmation first", async () => 
 });
 
 test("star and flag saves show in-progress and success feedback", async () => {
+  let finishSave!: () => void;
+  const held = new Promise<void>((resolve) => {
+    finishSave = resolve;
+  });
   const app = await openFirstAlbumPhoto({
     setPhotoMarks: async (_path: string, rating: number, flag: string) => {
-      await new Promise((resolve) => setTimeout(resolve, 400));
+      await held;
       return { rating, flag };
     },
   });
-  await app.keyboard.press("3");
+  // Do not await the press: it settles only once the marks write resolves, and
+  // the in-progress label has to be observed while it is still pending. A fixed
+  // timer here raced under load, which is what made the tag-triggered CI run
+  // fail (see #20).
+  const pressing = app.keyboard.press("3");
   await app.waitUntil(() => app.texts().includes("正在保存…"));
   expect(app.texts().includes("已保存")).toBe(false);
+  finishSave();
+  await pressing;
   await app.waitUntil(() => app.texts().includes("已保存"));
   expect(app.texts()).toContain("3 星");
   expect(app.texts().includes("正在保存…")).toBe(false);
