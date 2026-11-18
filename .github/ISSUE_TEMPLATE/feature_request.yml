@@ -1,0 +1,45 @@
+name: 功能建议 / Feature request
+description: 你希望应用能做什么。Something you want the app to do.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        这个应用的目标用户是用理光 GR IIIx 拍摄、并希望快速导入与选片的人。请先说明你遇到的问题，再说你想要的做法。
+
+        The app is for people shooting a Ricoh GR IIIx who want to import and cull quickly. Describe the problem first, then the change you want.
+  - type: textarea
+    id: problem
+    attributes:
+      label: 你遇到的问题 / The problem
+      description: 现在做这件事时，哪里不顺手？What is awkward about doing this today?
+      placeholder: 每次导入后我都要手动去 Finder 里确认哪些文件已经在了。
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 你希望的结果 / What you want
+      description: 你希望应用怎么做。不需要写成实现方案。How you would like the app to behave. No implementation plan needed.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 现在你怎么绕过 / What you do instead
+      description: 目前用什么替代办法，填「没有」也可以。How you work around it today; "nothing" is a fine answer.
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及的环节 / Which part
+      options:
+        - 连接相机 / Connecting to the camera
+        - 导入 / Import
+        - 本地相册与选片 / Local album and culling
+        - 导出 / Export
+        - 设置与权限 / Settings and permissions
+        - 其他 / Something else
+    validations:
+      required: true
