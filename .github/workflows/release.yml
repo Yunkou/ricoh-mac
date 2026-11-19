@@ -210,8 +210,6 @@ jobs:
             echo "Expected $zip and $sum from make dist." >&2
             exit 1
           fi
-          hash="$(awk '{print $1}' "$sum")"
-          zip_name="$(basename "$zip")"
           channel="$(python3 scripts/release-version.py --tag "$TAG" --print-channel)"
           channel_args=()
           if [[ "$channel" == "prerelease" ]]; then
@@ -219,14 +217,8 @@ jobs:
           fi
 
           notes="$(mktemp)"
-          preamble="$(sed -e "s/__ZIP_NAME__/${zip_name}/g" -e "s/__SHA256__/${hash}/g" scripts/release-notes-preamble.md)"
-          printf '%s\n' "$preamble" > "$notes"
-          commit="$(git rev-parse HEAD)"
-          if body="$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" -f tag_name="$TAG" -f target_commitish="${commit}" --jq .body)"; then
-            if [[ -n "$body" ]]; then
-              printf '\n---\n\n%s\n' "$body" >> "$notes"
-            fi
-          fi
+          python3 scripts/release-notes.py \
+            --tag "$TAG" --archive "$zip" --checksum "$sum" > "$notes"
 
           # Bash 3.2 (the macOS /bin/bash) errors on "${array[@]}" when the
           # array is empty and set -u is on. The ${array[@]+...} form expands
@@ -242,10 +234,10 @@ jobs:
             exit 1
           fi
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release edit "$TAG" --title "ricoh-mac ${TAG}" --notes-file "$notes" ${channel_args[@]+"${channel_args[@]}"}
+            gh release edit "$TAG" --title "Ricoh Mac ${TAG}" --notes-file "$notes" ${channel_args[@]+"${channel_args[@]}"}
             gh release upload "$TAG" "$zip" "$sum" --clobber
           else
-            create_args=(--title "ricoh-mac ${TAG}" --notes-file "$notes")
+            create_args=(--title "Ricoh Mac ${TAG}" --notes-file "$notes")
             if [[ "${GITHUB_EVENT_NAME}" == "push" ]]; then
               create_args+=(--verify-tag)
             fi

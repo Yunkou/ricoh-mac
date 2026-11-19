@@ -87,6 +87,8 @@ Version 1 GitHub Releases provide an ad hoc signed macOS application. They are n
 
 The application version is the same string in `nsh.json` (`version`) and in `Cargo.toml` (`package.version`). A release tag must be that string with a `v` prefix: version `0.1.0` is tagged `v0.1.0`. A prerelease follows the same rule, so version `0.1.0-rc.1` is tagged `v0.1.0-rc.1`. The release workflow fails if the tag and the two files are not identical.
 
+Before tagging, add `docs/releases/<tag>.zh-CN.md` and `docs/releases/<tag>.en.md` (for example `v0.3.3.zh-CN.md` and `v0.3.3.en.md`). Each file contains that version's product changes, optionally headed by `# <tag>`. The workflow reads both files from the tagged commit and publishes Chinese changes, English changes, installation instructions, and one SHA-256 section, in that order. Missing or empty notes, a mismatched version heading, or an archive checksum mismatch stop publication. `make test` includes temporary-fixture tests for this renderer. Existing Release pages are not changed by committing new notes.
+
 To publish a release:
 
 1. Set the same version in `nsh.json` and `Cargo.toml`, including any prerelease suffix such as `-rc.1` or `-beta.1`.
