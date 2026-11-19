@@ -12,6 +12,7 @@ check:
 	$(NSH) check
 
 test:
+	$(PYTHON) -B -m unittest discover -s scripts -p 'test_*.py'
 	$(NSH) test
 
 package:
